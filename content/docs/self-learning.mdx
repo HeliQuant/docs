@@ -6,6 +6,29 @@ description: Three layers of learning — edge discovery, desk reliability, and 
 HeliQuant learns at **three layers**. Losses aren't wasted — they're the training signal. The system is
 allowed to hold an **empty** validated-edge registry; promoting a dead edge would be the failure.
 
+## The loop
+
+Every closed decision feeds back into the three layers, and each layer changes how the *next* decision is
+made — what edge is trusted, which desks are weighted, and how each trade is sized, throttled, and timed.
+
+<Mermaid
+  caption="The self-learning loop — every outcome updates three layers that shape the next decision"
+  chart={`
+flowchart TB
+  D[PM decision — ENTER / ABSTAIN]:::node --> T[trade / paper position]:::node
+  T --> O[outcome — TP / SL / TIME]:::gate
+  O --> L1[Layer 1 · edge_lab]:::learn
+  O --> L2[Layer 2 · desk_performance]:::learn
+  O --> L3[Layer 3 · cond_record · asset_perf]:::learn
+  L1 -. validate / demote .-> D
+  L2 -. reliability weight .-> D
+  L3 -. size · frequency · horizon .-> D
+  classDef node fill:#161614,stroke:#c9f24b,color:#f2efe6;
+  classDef gate fill:#1e1e1b,stroke:#c9f24b,color:#f2efe6;
+  classDef learn fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
+`}
+/>
+
 ## Layer 1 — Edge discovery ("earn the edge")
 
 The `edge_lab` tests a **hypothesis library** (OI-change, price-momentum, funding, order-flow imbalance ×
@@ -21,6 +44,26 @@ otherwise it sits in `candidate_edges.json` on **probation**, requiring confirma
 **new-data** cycles. Today the validated registry is empty — MNT's flagship edge **decayed and was
 demoted** (Finding #11). Candidates (e.g. HYPE oi-contrarian, SUI funding-fade) await fresh-data proof.
 
+<Mermaid
+  caption="An edge's lifecycle — earned across folds, confirmed on new data, demoted when it decays"
+  chart={`
+stateDiagram-v2
+  [*] --> Hypothesis: from the hypothesis library
+  Hypothesis --> Testing: cost-aware OOS + 5-fold walk-forward
+  Testing --> FDRGate: outlier-robust + Benjamini-Hochberg
+  FDRGate --> Candidate: passes, on probation
+  FDRGate --> Rejected: fails the gate
+  Candidate --> Validated: confirmed on consecutive new-data cycles
+  Validated --> Demoted: decays on fresh data
+  Demoted --> [*]: registry back to empty
+  Rejected --> [*]
+  note right of Validated
+    Gates real aggression.
+    Today EMPTY — MNT flagship demoted.
+  end note
+`}
+/>
+
 ## Layer 2 — Desk reliability
 
 `desk_performance` scores each desk's stance vs realized direction and assigns a reliability weight
@@ -29,16 +72,41 @@ demoted** (Finding #11). Candidates (e.g. HYPE oi-contrarian, SUI funding-fade) 
 
 ## Layer 3 — Tactical re-map (the live floor)
 
-The continuous campaign learns run-to-run:
+The continuous campaign learns run-to-run — and it acts on what it learns by changing **size, frequency,
+and hold-time**, concentrating capital on what works and starving what bleeds:
 
 - **cond_record** — every closed trade dials a condition's throttle; a condition with a proven-losing
   record **in that regime** trades at half size (regime-aware: a short that bled in an up-market isn't
   penalised in a down-market).
 - **failed_conditions** — a losing round benches a condition with a TTL (forgiven later, so it can
   re-learn).
-- **asset-performance fade** — an asset with a proven-losing realized record (cold win-rate + net < 0)
-  trades smaller, so capital auto-concentrates on what works.
-- **regime veto** — counter-trend entries are refused; the gate won't bet against a clear regime.
+- **asset-performance** — a **cold** asset (losing record) trades **half size** *and* opens only **1 of
+  every 3 steps**; a **deep-cold** one is **benched** (with a periodic probe); a **warm** asset (a proven
+  winner) is **boosted to 1.4×**. Capital *and* frequency tilt toward what works.
+- **dynamic horizon** — the hold-time adapts to the setup type: a **trend-follow** trade is held longer
+  (8h, trends persist), a **contrarian/fade** is short (3h, it snaps fast or the thesis is wrong), a
+  **validated edge** runs (24h).
+- **clear-trend gate** — the floor only trades a **clear** trend, aligned to it; a flat/ambiguous regime
+  **abstains**, and a counter-trend signal flips to the trend-following side.
+
+<Mermaid
+  caption="Tactical layer — each closed trade re-maps size, frequency, and hold-time per asset and condition"
+  chart={`
+flowchart TB
+  C[closed trade — outcome + regime]:::node --> R[record by cond @ regime + asset]:::gate
+  R --> CR[cond_record — losing cond fades to half]:::learn
+  R --> FC[failed_conditions — losing round benched TTL]:::learn
+  R --> AP[asset record]:::gate
+  AP --> WARM[warm winner — boost 1.4x]:::good
+  AP --> COLD[cold loser — half size + open 1 of 3]:::bad
+  AP --> DEEP[deep-cold — bench + periodic probe]:::bad
+  classDef node fill:#161614,stroke:#c9f24b,color:#f2efe6;
+  classDef gate fill:#1e1e1b,stroke:#c9f24b,color:#f2efe6;
+  classDef learn fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
+  classDef good fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
+  classDef bad fill:#161614,stroke:#8b8b80,color:#8b8b80;
+`}
+/>
 
 ## The honest spine
 
