@@ -1,6 +1,7 @@
 import Link from 'next/link';
+import RadialEngine from '@/components/RadialEngine';
 
-/* a cog SVG — chartreuse/steel, optional spin */
+/* a cog SVG — chartreuse/steel, optional spin (background ambiance) */
 function Gear({ size = 120, color = '#c9f24b', teeth = 10, spin = '', className = '', style = {} }: { size?: number; color?: string; teeth?: number; spin?: string; className?: string; style?: React.CSSProperties }) {
   const rects = Array.from({ length: teeth }, (_, i) => (
     <rect key={i} x="46" y="3" width="8" height="15" rx="2" transform={`rotate(${(360 / teeth) * i} 50 50)`} />
@@ -32,10 +33,9 @@ export default function HomePage() {
       <Gear size={300} color="rgba(242,239,230,0.05)" teeth={9} spin="gear-spin-rev" style={{ position: 'absolute', left: -90, bottom: -40 }} />
 
       <div className="relative z-10 mx-auto max-w-3xl text-center">
-        {/* meshed gear cluster */}
-        <div className="mb-8 flex items-center justify-center gap-1">
-          <Gear size={68} color="#c9f24b" teeth={10} spin="gear-spin" />
-          <Gear size={48} color="#8b8b80" teeth={8} spin="gear-spin-rev" style={{ marginLeft: -8 }} />
+        {/* THE RADIAL ENGINE — the firm as a 9-cylinder radial (copied from the HeliQuant garage UI) */}
+        <div className="mb-8">
+          <RadialEngine />
         </div>
 
         <p className="font-mono text-[12px] uppercase tracking-[0.3em] text-[#8b8b80]">
