@@ -1,0 +1,153 @@
+---
+title: The Firm Machinery
+description: Beyond the desks — the steward, researchers, PM, the trading floor, sizing, and the learning loop.
+---
+
+The [nine desks](/docs/desks) only *produce reads*. Turning those reads into a disciplined, recorded,
+self-improving decision is the job of a whole **machinery of non-desk roles** — the parts of HeliQuant
+that act like the rest of a real trading firm: a steward who sets the agenda, researchers who argue, a PM
+who decides, a floor that trades, a risk officer who sizes, and a back office that records and learns.
+
+## The full machinery
+
+<Mermaid
+  caption="Everything around the desks — orchestration, decision, floor, recording, and the learning feedback"
+  chart={`
+flowchart TB
+  ST[["STEWARD — reads watchlist health, picks which assets to analyze"]]:::role
+  ST --> P1[PHASE 1 · 9 desks run real tools]:::desk
+  P1 --> P15{{"PHASE 1.5 · Bull vs Bear — 2-round debate"}}:::role
+  P15 --> PM[["PHASE 3 · Portfolio Manager<br/>weighted desks + R:R ≥ 2:1"]]:::role
+  PM --> FIN{finalize_decision<br/>valid ?}:::g
+  FIN -->|invalid| RAB[repair → ABSTAIN]:::o
+  FIN -->|valid| DEC[/"ENTER | ABSTAIN"/]:::o
+  DEC --> TT[trade_ticket<br/>fractional-Kelly sizing]:::role
+  DEC --> REC[on-chain recorders<br/>seal desks + decision]:::infra
+  DEC --> SB[(Supabase + memory_store)]:::infra
+  DEC -. on ABSTAIN .-> EXP[Exploration<br/>paper-hunt budget]:::floor
+  PM --> FLOOR[Campaign floor<br/>continuous paper trades]:::floor
+  REC --> LEARN[[Learning loop<br/>desk_performance · edge_lab · cond_record · edge_evolver]]:::learn
+  FLOOR --> LEARN
+  EXP --> LEARN
+  LEARN -. updated weights & edges .-> P1
+  classDef role fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
+  classDef desk fill:#161614,stroke:#c9f24b,color:#f2efe6;
+  classDef g fill:#1e1e1b,stroke:#c9f24b,color:#f2efe6;
+  classDef o fill:#161614,stroke:#8b8b80,color:#f2efe6;
+  classDef infra fill:#161614,stroke:#8b8b80,color:#f2efe6;
+  classDef floor fill:#161614,stroke:#c9f24b,color:#f2efe6;
+  classDef learn fill:#1e1e1b,stroke:#c9f24b,color:#f2efe6;
+`}
+/>
+
+## The roles
+
+<Mermaid
+  caption="The non-desk roles and how they relate"
+  chart={`
+classDiagram
+  class Steward {
+    +readWatchlistHealth()
+    +pickAssets() assets
+  }
+  class Desk {
+    +tool() realData
+    +weight 0.6 to 1.4
+  }
+  class Researcher {
+    +role bull or bear
+    +argue() case
+    +rebut() rebuttal
+  }
+  class PortfolioManager {
+    +weighByReliability()
+    +rrGate 2to1
+    +decide() ENTER_or_ABSTAIN
+  }
+  class TradeTicket {
+    +fractionalKelly()
+    +caps 3pct_risk_5x_lev
+  }
+  class LearningLoop {
+    +deskPerformance
+    +edgeLab
+    +condRecord
+    +edgeEvolver
+  }
+  Steward --> Desk : selects assets for
+  Desk --> PortfolioManager : weighted stances
+  Researcher --> PortfolioManager : debate
+  PortfolioManager --> TradeTicket : sizes ENTER
+  PortfolioManager --> LearningLoop : outcomes
+  LearningLoop --> Desk : updates weights
+`}
+/>
+
+### Steward — sets the agenda
+`organization.py · STEWARD_SYS`. Before any desk runs, the steward reads the **watchlist health report**
+(which assets have fresh data, which whales still qualify) and decides **what's worth analyzing this
+cycle**. It keeps the firm from burning a cycle on stale or junk assets.
+
+### Researchers — the bull and the bear
+`organization.py · run_debate`. Two researchers argue over the desk outputs in **two rounds** (opening +
+rebuttal) on a deep model. This surfaces dissent *before* the PM sees it, so a one-sided desk consensus
+gets stress-tested instead of rubber-stamped.
+
+### Portfolio Manager — the decision
+`organization.py · run_pm / PM_SYS`. The PM weighs the desks by **learned reliability**, reads the debate,
+and applies the hard **R:R ≥ 2:1** gate to output `ENTER` (only on a validated edge) or `ABSTAIN`.
+`finalize_decision` then validates the output — anything malformed or unjustified is **repaired down to
+ABSTAIN**, never up to a trade.
+
+## The trading floor
+
+- **Campaign** (`campaign.py · step`) — a continuous **paper floor** at live prices, driven by the same
+  desk votes, with ATR stops, a regime veto, and an asset-performance fade. It runs even when the org
+  abstains, so there's always a live, honest track record. See [Architecture](/docs/architecture#the-continuous-trading-floor).
+- **Exploration** (`exploration.py`) — when the org **ABSTAINs**, a small paper-hunt **budget** opens
+  exploratory positions on flow consensus, resolves them at 24h, and feeds the outcome to the learning
+  loop. Abstaining doesn't mean idle — it means *hunting carefully*.
+
+## Risk sizing — the trade ticket
+`trade_ticket.py · size_position`. Every ENTER is sized by **fractional Kelly** (`kelly_fraction_star`),
+then clamped by hard caps — **≤ 3% risk, ≤ 5× leverage**, with a 20% drawdown breaker — and split into
+**SAFE vs AGGRESSIVE** profiles. AGGRESSIVE is unlocked *only* when an OOS-validated edge's live signal
+fires.
+
+## The learning loop
+`desk_performance` (reliability weights) · `edge_lab` (validates candidate edges OOS) · `cond_record`
+(regime-aware tactical memory) · `edge_evolver` (searches variants when an edge is demoted). Together they
+make the firm **self-improving** — desks that call it right gain weight, edges that decay lose validation.
+This is its own subsystem; see [Self-learning](/docs/self-learning) for the full treatment.
+
+## The back office — recording & persistence
+- **On-chain recorders** (`onchain_recorder`, `agent_onchain`) — seal each desk's output and the decision
+  hash on Mantle every cycle (see [On-chain](/docs/on-chain)).
+- **State & memory** (`state_store`, `memory_store`) — persist the firm's state, decisions, and ledger to
+  **Supabase** so nothing is lost across redeploys.
+- **Strategy lifecycle** (`strategy_lifecycle`) — promotes/demotes whole strategies by status as their
+  evidence strengthens or decays.
+
+## A decision's journey
+
+<Mermaid
+  caption="From a steward's agenda to an immutable on-chain record — and back into learning"
+  chart={`
+journey
+  title A decision's journey — data to immutable record
+  section Gather
+    Steward picks assets: 4: Steward
+    Desks run real tools: 5: Desks
+  section Reason
+    LLMs interpret outputs: 4: Desks
+    Bull vs Bear debate: 4: Researchers
+    PM weighs + R:R gate: 5: PM
+  section Commit
+    finalize or ABSTAIN: 4: PM
+    Seal on Mantle: 5: Chain
+    Persist to Supabase: 4: Infra
+  section Learn
+    Score outcomes: 4: LearningLoop
+    Update weights and edges: 5: LearningLoop
+`}
+/>
