@@ -6,6 +6,56 @@ description: How the firm runs — 9 desks debate, the PM decides, every cycle i
 HeliQuant is structured like a trading firm: specialist **desks** produce domain reads, **researchers**
 argue bull-vs-bear, and a **Portfolio Manager** synthesizes one disciplined decision per cycle.
 
+## System map — data flow
+
+Every desk pulls **real data** (no placeholders) from a live source, an LLM interprets it into a stance,
+the debate stress-tests it, and the PM turns the weighted picture into a single recorded decision.
+
+<Mermaid
+  caption="Data-flow: live sources → 9 specialist desks → debate → PM → recorded decision"
+  chart={`
+flowchart TB
+  subgraph SRC["① DATA SOURCES — real, mostly free"]
+    direction LR
+    BY[Bybit market]:::src
+    HL[Hyperliquid whale]:::src
+    AL[Allora oracle]:::src
+    DL[DeFiLlama TVL/fees]:::src
+    NA[Nansen · Elfa]:::src
+    ES[Etherscan v2]:::src
+  end
+  subgraph DESKS["② 9 SPECIALIST DESKS — each a different LLM"]
+    direction LR
+    D1[Regime · ML]:::desk
+    D2[Macro · Allora]:::desk
+    D3[On-chain/Risk]:::desk
+    D4[Research]:::desk
+    D5[Smart-Money]:::desk
+    D6[Smart-Social]:::desk
+    D7[OI-Contrarian]:::desk
+    D8[flow-intel]:::desk
+    D9[whale]:::desk
+  end
+  DEB{{"③ Bull vs Bear — 2-round debate"}}:::deb
+  PM[["④ Portfolio Manager<br/>weigh by learned reliability · R:R ≥ 2:1 gate"]]:::pm
+  OUT[/"ENTER (validated edge) · or · ABSTAIN"/]:::out
+  CH[("Mantle — decision hash<br/>+ per-desk credentials")]:::chain
+  SB[("Supabase — state + ledger")]:::store
+
+  SRC --> DESKS --> DEB --> PM
+  PM --> OUT
+  PM --> CH
+  PM --> SB
+  classDef src fill:#161614,stroke:#8b8b80,color:#f2efe6;
+  classDef desk fill:#161614,stroke:#c9f24b,color:#f2efe6;
+  classDef deb fill:#1e1e1b,stroke:#c9f24b,color:#f2efe6;
+  classDef pm fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
+  classDef out fill:#161614,stroke:#8b8b80,color:#f2efe6;
+  classDef chain fill:#161614,stroke:#c9f24b,color:#c9f24b;
+  classDef store fill:#161614,stroke:#8b8b80,color:#f2efe6;
+`}
+/>
+
 ## The 3-phase loop
 
 <Steps>
@@ -16,8 +66,8 @@ Each of the specialist desks runs a **real tool** (no placeholders) over fresh d
 </Step>
 <Step>
 ### Phase 2 — Debate
-A **bull** and a **bear/risk** researcher argue using only the desk outputs, then rebut each other.
-Dissent is surfaced, not averaged away.
+A **bull** and a **bear/risk** researcher argue using only the desk outputs, then rebut each other
+(deep model, 2 rounds). Dissent is surfaced, not averaged away.
 </Step>
 <Step>
 ### Phase 3 — Decision (PM)
@@ -26,6 +76,39 @@ The Portfolio Manager weighs the desks **ranked by learned reliability**, applie
 hash is anchored on Mantle.
 </Step>
 </Steps>
+
+### One cycle, end to end
+
+<Mermaid
+  caption="Sequence of a single cycle — driver to on-chain seal"
+  chart={`
+sequenceDiagram
+  autonumber
+  participant U as Pinger / FE
+  participant APP as app.py
+  participant D as Desks (real tools)
+  participant L as LLMs (per-desk)
+  participant R as Bull / Bear
+  participant PM as PM
+  participant CH as Mantle
+  participant SB as Supabase
+  U->>APP: GET /run-cycle (keep-alive + driver)
+  APP->>APP: gap ≥ MIN_CYCLE_GAP ? acquire lock
+  loop each of the 9 desks
+    APP->>D: run real tool (Bybit/Allora/HL/DeFiLlama…)
+    D-->>APP: stance + confidence
+    APP->>L: interpret output (model rotates per desk)
+    L-->>APP: JSON stance
+  end
+  APP->>R: desk outputs → debate (2 rounds)
+  R-->>APP: bull case / bear risks (rebutted)
+  APP->>PM: desks ranked by reliability + debate
+  PM-->>APP: ENTER (validated edge) | ABSTAIN · R:R ≥ 2:1
+  APP->>CH: recordCredential per desk + decision hash
+  CH-->>APP: tx hash (anchored)
+  APP->>SB: persist decision + desk outcomes
+`}
+/>
 
 ## The discipline gates
 
@@ -40,9 +123,33 @@ hash is anchored on Mantle.
 ## The continuous trading floor
 
 Alongside the LLM org, a **campaign** runs a continuous paper floor at live prices: desk-vote-driven
-positions, ATR stops (SL 1.8× / TP 2.5× / 4h max-hold), regime veto, no identical-bet stacking, and an
-**asset-performance fade** that shrinks size on assets with a proven-losing record — capital
-auto-concentrates on what works.
+positions, ATR stops, a regime veto, no identical-bet stacking, and an **asset-performance fade** that
+shrinks size on proven-losing assets — capital auto-concentrates on what works. Every position is a
+little state machine:
+
+<Mermaid
+  caption="Campaign position lifecycle — open, manage, exit, learn"
+  chart={`
+stateDiagram-v2
+  [*] --> Scanning
+  Scanning --> Blocked: cooldown / deep-cold bench / mid-range / macro event-risk
+  Blocked --> Scanning: gate clears (TTL or probe trade)
+  Scanning --> Open: desk votes pass + confluence
+  Open --> TP: +2.5× ATR target
+  Open --> SL: −1.8× ATR stop
+  Open --> STALL: ≥2h & |move| < 0.3%
+  Open --> TIME: 4h max-hold
+  TP --> Learn
+  SL --> Learn
+  STALL --> Learn
+  TIME --> Learn
+  Learn --> Scanning: update cond_record + asset-perf + cooldown
+`}
+/>
+
+The floor is **self-driving**: any read of `/campaign` or `/trades` opportunistically advances a step in
+the background (lock-guarded, ≤1 step / 15 min), so it keeps trading on real traffic even if the external
+keep-alive pinger lapses.
 
 ## Stack
 
@@ -51,4 +158,4 @@ auto-concentrates on what works.
   fundamentals) · Nansen / Elfa (smart-money & social) · Etherscan v2 (on-chain)
 - **Chain:** Mantle Sepolia — ERC-8004 (identity/reputation/validation) · ERC-8183 (JobManager) ·
   ERC-7857 (transferable agent NFT) · TradingVault · AlloraConsumer
-- **Always-on:** Railway service + Supabase state · driven by an uptime pinger
+- **Always-on:** Railway service + Supabase state · driven by an uptime pinger + self-driving floor
