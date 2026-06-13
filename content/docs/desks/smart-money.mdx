@@ -1,0 +1,62 @@
+---
+title: Smart-Money Flow desk
+description: A dynamic engine that auto-switches between on-chain DEX flow (Mantle) and perp positioning (majors).
+---
+
+**ERC-8004 tokenId 7.** The Smart-Money Flow desk is the **Dynamic Smart-Money Flow Engine**
+(`scripts/51`). It reads where informed capital is positioned — but *how* it reads depends on the asset:
+a Mantle-native token gets an on-chain read; a major gets a perp-positioning read.
+
+## What it reads
+
+`firm/organization.py · tool_smartmoney()`. It auto-selects a mode per asset:
+
+- **CONTRACT mode** (Mantle: MNT/WMNT, mETH) — on-chain **DEX flow_bias** + pool **liquidity** + **mETH
+  staking** conviction.
+- **POSITIONING mode** (majors: BTC/ETH/SOL) — perp **OI / funding / long-short**, read
+  **contrarian-to-crowding**.
+- **Nansen macro smart-money** — netflow of smart-money wallets (ETH; MNT ≈ 0.64 correlated to majors),
+  cached, surfaced in logs so its credit burn is auditable.
+
+## Mode selection
+
+<Mermaid
+  caption="One engine, two reads — Mantle-native on-chain vs majors perp positioning"
+  chart={`
+flowchart TB
+  A[asset] --> M{mode ?}:::g
+  M -->|Mantle MNT/WMNT/mETH| CON[CONTRACT mode]:::b
+  M -->|majors BTC/ETH/SOL| POS[POSITIONING mode]:::b
+  CON --> C1[on-chain DEX flow_bias<br/>+ liquidity + mETH staking conviction]:::s
+  POS --> P1[perp OI / funding / long-short<br/>contrarian-to-crowding]:::s
+  C1 --> SC[["flow_score 0–100 + read"]]:::o
+  P1 --> SC
+  NA[Nansen macro smart-money<br/>netflow · ETH · MNT corr 0.64]:::s --> SC
+  SC --> PM[to PM as context]:::o
+  classDef g fill:#1e1e1b,stroke:#c9f24b,color:#f2efe6;
+  classDef b fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
+  classDef s fill:#161614,stroke:#8b8b80,color:#f2efe6;
+  classDef o fill:#161614,stroke:#8b8b80,color:#f2efe6;
+`}
+/>
+
+## Output (shape)
+
+```json
+{
+  "asset": "WMNT",
+  "mode": "CONTRACT",
+  "flow_score_0_100": 62,
+  "read": "…",
+  "macro_smart_money_nansen": { "read": "…", "net24h_total_usd": 0, "credits_left": 0 },
+  "methodology": "CONTRACT = Mantle on-chain DEX flow + staking; POSITIONING = perp OI/funding/long-short (contrarian)."
+}
+```
+
+## Honest caveats
+
+The flow score is an **aggregate** (deliberately manipulation-robust — one wallet can't move it) and is
+**forward-logged**, so it's treated as **context, not a claimed alpha**. The CONTRACT read is genuinely
+Mantle-native (on-chain DEX + mETH staking), which is exactly the kind of signal a Mantle ecosystem
+strategy should own. Nansen is rich on majors but thin on Mantle, so it anchors the macro view via the
+BTC/MNT correlation rather than a direct MNT read.

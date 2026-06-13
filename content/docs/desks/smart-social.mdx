@@ -1,0 +1,58 @@
+---
+title: Smart-Social desk
+description: Elfa narrative & mindshare from smart accounts — attention magnitude as context.
+---
+
+**ERC-8004 tokenId 8.** The Smart-Social desk reads **where crypto attention is rotating** — using Elfa's
+*smart-account* data (curated influential accounts, not retail noise). It quantifies **attention
+magnitude**, not direction.
+
+## What it reads
+
+`firm/organization.py · tool_smartsocial()` → `firm/elfa_client.py`:
+
+- **Trending narratives** — Elfa `trending-tokens` (24h mindshare): which tokens/narratives are heating up.
+- **Per-asset top-mentions** — engagement-weighted mentions for the traded ticker.
+- **Per-asset news** — recent token-news items.
+- **Attention magnitude** — total views / mention count, e.g. **BTC ~1M vs a Mantle-eco asset ~3k
+  views/24h** — a real, honest attention gap.
+
+## How attention becomes context
+
+<Mermaid
+  caption="Elfa data tier feeds attention magnitude; the paid AI-chat tier is replaced by encoded gates"
+  chart={`
+flowchart TB
+  T[Elfa trending-tokens<br/>mindshare 24h]:::s --> AGG
+  TM[Elfa top-mentions<br/>per asset · engagement-weighted]:::s --> AGG
+  NW[Elfa token-news<br/>per asset]:::s --> AGG
+  AGG[["attention magnitude<br/>BTC ~1M vs MNT ~3k views/24h"]]:::o --> PM[to PM as context]:::o
+  CHAT[Elfa /v2/chat<br/>AI trade-analysis]:::x -. paid tier · 403 scope:chat .-> FW[framework encoded<br/>in the firm's gates]:::o
+  classDef s fill:#161614,stroke:#8b8b80,color:#f2efe6;
+  classDef o fill:#1e1e1b,stroke:#c9f24b,color:#f2efe6;
+  classDef x fill:#161614,stroke:#8b8b80,color:#8b8b80;
+`}
+/>
+
+## Output (shape)
+
+```json
+{
+  "asset": "BTC",
+  "asset_in_top_trending": true,
+  "asset_attention_24h": { "smart_mentions": 5, "total_views": 1000000, "news_items": 4 },
+  "asset_top_mentions": ["…"],
+  "asset_news": ["…"],
+  "top_narratives_24h": ["…"]
+}
+```
+
+## Honest caveats
+
+- **Attention is context, not direction.** A loud asset can dump; a quiet one can rip. The desk supplies
+  *how much* an asset is in the conversation, and the PM decides what that's worth.
+- **Elfa's AI trade-analysis chat (`/v2/chat`) is paid-tier** — our key returns `403 scope: chat`. So we
+  use the **data** endpoints (which our key reaches) and encode Elfa's trading *framework* (no mid-range
+  chop, dynamic-stall exit, event-risk) directly in the firm's [gates](/docs/architecture#the-discipline-gates).
+- Mantle-eco social mindshare is structurally thin — the desk reports that honestly rather than inventing
+  a narrative.

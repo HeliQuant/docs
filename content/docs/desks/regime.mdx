@@ -1,0 +1,80 @@
+---
+title: Regime / Technical desk
+description: The ML desk — an XGBoost regime classifier (82.6% OOS) used as a risk read, not a price oracle.
+---
+
+**ERC-8004 tokenId 3.** This is **the ML desk** — and it's where HeliQuant's honesty about machine
+learning lives. It runs the model that *earned* its place (a regime classifier) and explicitly does
+**not** run the one that didn't (a directional predictor).
+
+## What it reads
+
+`firm/organization.py · tool_regime()` over fresh 1h candles:
+
+- **XGBoost regime classifier** — `82.6%` out-of-sample accuracy (`91.6%` on high-confidence calls).
+- **ADX trend strength** vs a dynamic trending threshold.
+- **Dynamic risk/reward** recommendation derived from the regime.
+- **OOS-validation status** for the asset (`is_validated` against the validated-edge registry).
+
+## Pipeline
+
+<Mermaid
+  caption="Candles → regime + trend strength → a risk read (never a raw price call)"
+  chart={`
+flowchart TB
+  C[1h candles · Bybit / positioning CSV]:::s --> X[["XGBoost regime classifier<br/>82.6% OOS · 91.6% confident"]]:::ml
+  C --> ADX[ADX trend strength<br/>vs dynamic threshold]:::s
+  X --> R{regime ∈ TREND ?}:::g
+  ADX --> R
+  R -->|yes| RR[recommend dynamic R:R]:::o
+  R -->|no| NA[trend-following N/A → context]:::o
+  X --> V{OOS-validated edge<br/>for this asset ?}:::g
+  V -->|registry hit| EN[edge applies]:::o
+  V -->|empty| AB[abstain unless an edge is earned]:::o
+  classDef s fill:#161614,stroke:#8b8b80,color:#f2efe6;
+  classDef ml fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
+  classDef g fill:#1e1e1b,stroke:#c9f24b,color:#f2efe6;
+  classDef o fill:#161614,stroke:#8b8b80,color:#f2efe6;
+`}
+/>
+
+## Regime → action
+
+<Mermaid
+  caption="The classifier produces a risk read — accurate regime ≠ trading profit"
+  chart={`
+stateDiagram-v2
+  [*] --> Classify: XGBoost on fresh candles
+  Classify --> Trending: regime ∈ TREND
+  Classify --> Ranging: otherwise
+  Trending --> RiskRead: dynamic R:R sizing
+  Ranging --> RiskRead: trend-following N/A
+  RiskRead --> [*]: feed PM as a risk read, not a price call
+`}
+/>
+
+## Output (shape)
+
+```json
+{
+  "current_regime": "…",
+  "adx": 18.4,
+  "trending_threshold": 20.0,
+  "trend_following_applicable_now": false,
+  "recommended_dynamic_rr": 2.2,
+  "regime_classifier_oos_accuracy": "82.6% (91.6% when confident)",
+  "oos_validated_trading_edge": false,
+  "status": "NO validated trend-following edge — abstain unless a genuine edge applies"
+}
+```
+
+## The honest ML story
+
+We tested a **directional** ML (XGBoost predicting BUY/SELL on MNT). It scored **~51% accuracy and
+−50% to −62% OOS net of fees** (Finding #22) — no better than a coin flip after costs. It is **not used
+and not registered on-chain.** A full-history (2.9 yr) walk-forward + rolling re-tune of trend-following
+was also flat-to-negative OOS; the earlier "+5.58%" was a short-window artifact, since scrubbed.
+
+What *is* accurate is the **regime classifier** (82.6% OOS). But an accurate regime label is **not** a
+trading profit — so it's used as a **capital allocator / risk read** feeding the PM, never as a price
+oracle. The good model earns its place; the disproven one stays out. That distinction is the differentiator.

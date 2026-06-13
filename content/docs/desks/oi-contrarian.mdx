@@ -1,0 +1,61 @@
+---
+title: OI-Contrarian desk
+description: HeliQuant's one OOS-validated edge — fade perp open-interest extremes, only where it pays.
+---
+
+**ERC-8004 tokenId 9.** This is the **disciplined exception to "abstain."** Most desks supply context;
+this one carries the firm's single **OOS-validated trading edge** — fading crowded perp open-interest —
+but it only fires when *both* a registry-validated edge **and** a live signal align.
+
+## What it reads
+
+`firm/organization.py · tool_oi_contrarian()`:
+
+- **Validated-edge registry** — `data/validated_edges.json`, produced by a **cost-aware OOS backtest**
+  (`scripts/39`). Holds `p_win`, `payoff_b`, `sample_n`, `oos_roi_pct` per asset that survived.
+- **Live OI-contrarian signal** — perp **OI 24h-change quintiles**: top quintile → **SHORT**, bottom
+  quintile → **LONG** (fade the crowd).
+
+## The disciplined gate
+
+<Mermaid
+  caption="Two locks: a validated edge AND a live signal — otherwise it's context, not a trade"
+  chart={`
+flowchart TB
+  A[asset] --> E{validated edge<br/>in registry ?}:::g
+  E -->|no| CTX[live OI signal = context only<br/>NOT tradeable]:::o
+  E -->|yes| S{live OI extreme<br/>firing now ?}:::g
+  S -->|no| WAIT[wait / abstain until it fires]:::o
+  S -->|yes| ENTER[ACTIONABLE — fade the crowd<br/>fractional-Kelly sized]:::act
+  classDef g fill:#1e1e1b,stroke:#c9f24b,color:#f2efe6;
+  classDef o fill:#161614,stroke:#8b8b80,color:#f2efe6;
+  classDef act fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
+`}
+/>
+
+| Perp OI 24h change | Crowd | Fade action |
+|---|---|---|
+| Top quintile (OI spiking) | crowd piling in | **SHORT** |
+| Bottom quintile (OI flushing) | crowd capitulating | **LONG** |
+| Middle | no extreme | no trade |
+
+## Output (shape)
+
+```json
+{
+  "asset": "MNT",
+  "edge_validated": true,
+  "actionable": true,
+  "live_signal": "short",
+  "edge_stats": { "p_win": 0.588, "payoff_b": 1.30, "sample_n": 34, "oos_roi_pct": 28.9 },
+  "caveat": "Hedge-like, bear-amplified, small-sample (n=34), inconsistent fold-to-fold — fractional-Kelly, not a guarantee."
+}
+```
+
+## Honest caveats
+
+This is a **real but fragile** edge: small sample (n≈34), hedge-like (it shines when the crowd is wrong,
+often in down moves), and **inconsistent fold-to-fold**. So it's fractional-Kelly sized with hard
+risk caps — never bet as a sure thing. Crucially, **the registry is allowed to be empty**: when an asset's
+edge decays out of validation (as MNT's has on fresh full-history data), this desk degrades to
+**context only** and the firm goes back to abstaining. The edge must stay *earned*, every re-test.

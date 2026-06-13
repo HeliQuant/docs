@@ -1,0 +1,51 @@
+---
+title: flow-intel desk
+description: A self-learning desk that tests which flow signals actually validate out-of-sample.
+---
+
+**ERC-8004 tokenId 10.** flow-intel is a **self-learning desk**: it doesn't assume any flow signal works
+— it continuously *tests* a basket of them (OI, funding, order-flow, momentum) and only lets the survivors
+earn weight. It's the desk that embodies the firm's "an edge must be earned" rule.
+
+## What it reads
+
+`firm/flow_intel.py` — a rotating set of flow-signal hypotheses, each forward-logged and scored:
+
+- **OI** — open-interest change behaviour.
+- **Funding** — perp funding-rate extremes.
+- **Order-flow** — aggressor imbalance.
+- **Momentum** — short-horizon continuation.
+
+Each candidate is held to a **cost-aware, out-of-sample** standard and a **Benjamini-Hochberg FDR** gate
+so that running many tests doesn't manufacture a false winner. Today **0–1 of 4** validate — and the desk
+reports that honestly rather than forcing a signal.
+
+## Signal lifecycle
+
+<Mermaid
+  caption="Every flow signal must survive OOS + an FDR gate before it earns weight"
+  chart={`
+stateDiagram-v2
+  [*] --> Candidate: new flow signal (OI / funding / order-flow / momentum)
+  Candidate --> Testing: forward-log outcomes
+  Testing --> FDRGate: enough samples
+  FDRGate --> Validated: survives Benjamini-Hochberg FDR
+  FDRGate --> Rejected: fails (false-positive controlled)
+  Validated --> Weighted: earns a desk reliability weight
+  Rejected --> Candidate: re-test on fresh data
+  Weighted --> [*]
+`}
+/>
+
+## Why FDR matters
+
+If you test 20 signals at p < 0.05, you expect ~1 to look "significant" by pure chance. A naive
+best-of-N search **guarantees** a false edge. The Benjamini-Hochberg procedure controls the
+false-discovery rate across the whole battery, so a signal that clears the gate is far likelier to be
+real. This same FDR discipline is shared with `edge_lab` and the onboarding screen.
+
+## Honest caveats
+
+flow-intel is **mostly a producer of "no"** — and that's the point. It exists to stop the firm from
+trading flow folklore. When it does validate a signal, that signal folds into `desk_performance` and is
+ranked alongside the other desks; until then it abstains. See [Self-learning](/docs/self-learning).

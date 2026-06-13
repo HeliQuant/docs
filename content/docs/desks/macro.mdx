@@ -1,0 +1,65 @@
+---
+title: Macro desk (Allora)
+description: Decentralised-AI macro — Allora's on-chain 8h price inference for BTC and ETH.
+---
+
+**ERC-8004 tokenId 4.** The macro desk doesn't guess at the Fed — it reads a **decentralised-AI oracle**.
+Allora is a network of models that publishes price inferences on-chain; HeliQuant consumes its 8-hour
+BTC and ETH predictions through the `AlloraConsumer` contract on Mantle.
+
+## What it reads
+
+`firm/organization.py · tool_macro()` → `firm/allora_client.py`:
+
+- **BTC** — Allora topic **14**, 8h price prediction.
+- **ETH** — Allora topic **9**, 8h price prediction.
+- Each inference yields `spot_usd`, `predicted_8h_usd`, `predicted_return_pct`, and a `direction`
+  (bullish / bearish / neutral).
+- **MNT linkage** — MNT empirically tracks BTC (correlation **≈ 0.64**), so the BTC macro read informs
+  the MNT stance too.
+
+## How a prediction is fetched
+
+<Mermaid
+  caption="Allora oracle fetch — with a plausibility filter and a regime fallback"
+  chart={`
+sequenceDiagram
+  autonumber
+  participant DK as Macro desk
+  participant AC as AlloraConsumer (Mantle)
+  participant AL as Allora network
+  participant FB as BTC-regime fallback
+  DK->>AC: fetch BTC topic 14 · ETH topic 9
+  AC->>AL: query 8h price inference
+  AL-->>AC: predicted_8h_usd + spot_usd
+  AC-->>DK: signal
+  alt implausible (≤ 0 or |return| > 50%)
+    DK->>FB: use BTC-regime proxy
+    FB-->>DK: regime + 24-bar return
+  else valid
+    DK->>DK: direction = bull / bear / neutral
+  end
+  Note over DK: MNT tracks BTC (corr ≈ 0.64) → macro informs MNT
+`}
+/>
+
+## Output (shape)
+
+```json
+{
+  "source": "Allora decentralised-AI 8h price prediction (BTC topic 14, ETH topic 9)",
+  "btc": { "spot_usd": 0, "predicted_8h_usd": 0, "predicted_return_pct": 0.0, "direction": "neutral" },
+  "eth": { "...": "..." },
+  "btc_mnt_8h_correlation": 0.64,
+  "note": "Real on-chain decentralised-AI signal. MNT empirically tracks BTC."
+}
+```
+
+## Honest caveats
+
+- A bad/empty inference (e.g. a topic returns 0, or an implausible >50% move) is **rejected** and the
+  desk falls back to a transparent BTC-regime proxy — it never forwards garbage as signal.
+- Allora gives a **direction view at an 8h horizon**, treated as macro **context**, not a standalone
+  trade trigger. The PM still gates everything behind R:R ≥ 2:1.
+- This desk is the firm's **sponsor integration** (Allora) and runs against the real network — see
+  [On-chain](/docs/on-chain) for the `AlloraConsumer` address.

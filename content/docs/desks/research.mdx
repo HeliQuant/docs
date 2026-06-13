@@ -1,0 +1,51 @@
+---
+title: Research desk
+description: External macro context from free public APIs — Fear & Greed, global market, trending.
+---
+
+**ERC-8004 tokenId 6.** The research desk is the firm's window onto the broader market mood. It pulls
+**only free public APIs** (no paid walls) and bundles them into a context read for the PM. It's
+deliberately cheap and extensible from the public-apis catalog.
+
+## What it reads
+
+`firm/organization.py · tool_research()`:
+
+- **Fear & Greed index** — `alternative.me` (value + classification).
+- **Global market** — CoinGecko: total market-cap 24h change, BTC dominance, active-crypto count.
+- **Trending coins** — CoinGecko top trending symbols.
+- **Majors 24h change** — CoinGecko simple-price for BTC / ETH / MNT.
+
+## Data flow
+
+<Mermaid
+  caption="Four free public APIs fan in to one macro-context bundle (DFD)"
+  chart={`
+flowchart LR
+  FG[alternative.me<br/>Fear & Greed]:::s --> CTX
+  GM[CoinGecko<br/>global mcap · BTC dominance]:::s --> CTX
+  TR[CoinGecko<br/>trending coins]:::s --> CTX
+  PX[CoinGecko<br/>majors 24h change]:::s --> CTX
+  CTX[["macro-context bundle"]]:::o --> PM[to PM as context]:::o
+  classDef s fill:#161614,stroke:#8b8b80,color:#f2efe6;
+  classDef o fill:#1e1e1b,stroke:#c9f24b,color:#f2efe6;
+`}
+/>
+
+## Output (shape)
+
+```json
+{
+  "fear_greed_index": { "value": 54, "label": "Neutral" },
+  "global_market": { "total_mcap_change_24h_pct": -1.2, "btc_dominance_pct": 58.3, "active_cryptos": 13000 },
+  "trending_coins": ["…", "…"],
+  "majors_24h_change_pct": { "bitcoin": -0.8, "ethereum": -1.1, "mantle": -2.0 },
+  "note": "External macro research via free public APIs — extensible from the public-apis catalog."
+}
+```
+
+## Honest caveats
+
+This desk is **context, not signal** — sentiment indices and dominance are slow-moving and weakly
+predictive at a 4h–24h horizon. Its job is to tell the PM what the *weather* is (risk-on vs risk-off),
+not to call direction. Everything is keyless and free, so it never blocks a cycle on a quota.

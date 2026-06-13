@@ -1,0 +1,58 @@
+---
+title: On-chain / Risk desk
+description: Whale USD-flow vs price (divergence), watchlist health, and GoPlus token safety.
+---
+
+**ERC-8004 tokenId 5.** This desk answers two questions: *is the token safe to touch?* and *what is
+smart money doing relative to price?* It fuses a security screen with an on-chain flow read and looks for
+**divergence** — the high-value angle.
+
+## What it reads
+
+`firm/organization.py · tool_onchain_risk()`:
+
+- **GoPlus token security** (WMNT) — honeypot check, severity, risk score, `trade_safe` flag.
+- **Whale watchlist health** — what fraction of the tracked wallets still qualify, how stale the data is.
+- **Whale USD-flow** — aggregate smart-money flow from GeckoTerminal **Mantle DEX** pools (~24h, 5 pools,
+  L3 trade data) → a `net_bias` (accumulating / distributing / neutral).
+- **Divergence vs price** — compares `net_bias` against the recent 24-bar return.
+
+## The divergence logic
+
+<Mermaid
+  caption="Smart-money flow × price → the divergence read"
+  chart={`
+flowchart TB
+  GP[GoPlus security · WMNT<br/>honeypot? risk score]:::s --> RISK[risk gate]:::o
+  WL[Watchlist health<br/>qualify% · stale?]:::s --> RISK
+  WF[Whale USD-flow<br/>GeckoTerminal Mantle DEX · 5 pools · L3]:::s --> NB{net_bias}:::g
+  PR[Price 24-bar return]:::s --> DV
+  NB --> DV{{divergence vs price}}:::g
+  DV -->|buying weakness| BULL[BULLISH divergence]:::o
+  DV -->|selling strength| BEAR[BEARISH divergence]:::o
+  DV -->|aligned| CONF[confirms the trend]:::o
+  classDef s fill:#161614,stroke:#8b8b80,color:#f2efe6;
+  classDef g fill:#1e1e1b,stroke:#c9f24b,color:#f2efe6;
+  classDef o fill:#161614,stroke:#8b8b80,color:#f2efe6;
+`}
+/>
+
+## Output (shape)
+
+```json
+{
+  "token_security": { "token": "WMNT", "severity": "low", "honeypot": false, "trade_safe": true },
+  "whale_health": { "qualify_pct": 80, "losers": 1, "data_age_hours": 6, "stale": false },
+  "whale_flow": { "net_bias": "accumulating" },
+  "price_recent_24bar_pct": -2.1,
+  "whale_divergence_vs_price": "BULLISH divergence (whales buying weakness)"
+}
+```
+
+## Honest caveats
+
+The whale USD-flow aggregate is **clean but lagged and unvalidated** — it's forward-logged (via
+`scripts/30`) to *test* whether it predicts, but it has **not** earned an edge. So it's used as
+**positioning / divergence context**, not a timing trigger. The security screen is a hard gate: an unsafe
+token is never traded regardless of flow. Mantle is DEX-centric, so this is a Mantle-native read that a
+CEX-only firm can't replicate.
