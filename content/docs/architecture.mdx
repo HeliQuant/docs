@@ -1,0 +1,54 @@
+---
+title: Architecture
+description: How the firm runs — 9 desks debate, the PM decides, every cycle is recorded.
+---
+
+HeliQuant is structured like a trading firm: specialist **desks** produce domain reads, **researchers**
+argue bull-vs-bear, and a **Portfolio Manager** synthesizes one disciplined decision per cycle.
+
+## The 3-phase loop
+
+<Steps>
+<Step>
+### Phase 1 — Analysis
+Each of the specialist desks runs a **real tool** (no placeholders) over fresh data and returns a stance
++ confidence. Different desks run on different LLM models so they don't groupthink.
+</Step>
+<Step>
+### Phase 2 — Debate
+A **bull** and a **bear/risk** researcher argue using only the desk outputs, then rebut each other.
+Dissent is surfaced, not averaged away.
+</Step>
+<Step>
+### Phase 3 — Decision (PM)
+The Portfolio Manager weighs the desks **ranked by learned reliability**, applies a hard
+**risk/reward ≥ 2:1 gate**, and outputs `ENTER` (only on a validated edge) or `ABSTAIN`. The decision's
+hash is anchored on Mantle.
+</Step>
+</Steps>
+
+## The discipline gates
+
+- **No validated edge → ABSTAIN.** `validated_edges.json` is allowed to be empty. An edge must be
+  *earned* (see [Self-learning](/docs/self-learning)).
+- **R:R ≥ 2:1.** Even a validated edge abstains when the structure doesn't pay.
+- **Macro event-risk.** Around FOMC/CPI, BTC/ETH **de-risk** — volatility ~2× but direction is noise
+  (research-backed), so the firm won't bet direction into a scheduled print.
+- **AGGRESSIVE is earned.** Fractional-Kelly, capped at 3% risk / 5× leverage, with a 20% drawdown
+  breaker — unlocked **only** when an OOS-validated edge's live signal fires.
+
+## The continuous trading floor
+
+Alongside the LLM org, a **campaign** runs a continuous paper floor at live prices: desk-vote-driven
+positions, ATR stops (SL 1.8× / TP 2.5× / 4h max-hold), regime veto, no identical-bet stacking, and an
+**asset-performance fade** that shrinks size on assets with a proven-losing record — capital
+auto-concentrates on what works.
+
+## Stack
+
+- **Brain:** multi-provider LLM abstraction (BYO keys) · runs clean on free Groq
+- **Data:** Bybit (market) · Hyperliquid (whale) · Allora (decentralised-AI macro) · DeFiLlama (Mantle
+  fundamentals) · Nansen / Elfa (smart-money & social) · Etherscan v2 (on-chain)
+- **Chain:** Mantle Sepolia — ERC-8004 (identity/reputation/validation) · ERC-8183 (JobManager) ·
+  ERC-7857 (transferable agent NFT) · TradingVault · AlloraConsumer
+- **Always-on:** Railway service + Supabase state · driven by an uptime pinger

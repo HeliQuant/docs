@@ -1,0 +1,50 @@
+---
+title: Run Your Own
+description: HeliQuant is open and self-hostable — bring your own keys, your firm never touches ours.
+---
+
+The backend is **credential-modular**: every key is read from `.env`, and the LLM layer is a BYO
+multi-provider abstraction. You can run the whole firm on your own infrastructure with your own keys —
+they never touch ours.
+
+## The model
+
+- **View the live firm** — the public dApp ([heliquant.vercel.app](https://heliquant.vercel.app)) shows
+  HeliQuant's own always-on instance: the trading floor, learning, agents, ledger — read-only, live.
+- **Run your own** — clone the repo, set your `.env`, deploy your own Railway service + Supabase. Your
+  firm, your keys, your chain wallet.
+
+## Quick start
+
+<Steps>
+<Step>
+### Clone + install
+```bash
+git clone https://github.com/HeliQuant/agents
+cd agents && python -m venv .venv && .venv/Scripts/pip install -r requirements.txt
+```
+</Step>
+<Step>
+### Configure `.env`
+Bring your own: an LLM provider key (free Groq works), Bybit (market data, optional), Allora, Mantlescan,
+a Supabase project (URL + service_role), and a testnet wallet key for on-chain anchoring. The firm runs
+clean on **free Groq** — no paid brain required.
+</Step>
+<Step>
+### Deploy
+Push to a **Railway** service (EU/Amsterdam region so Bybit is reachable) and point an uptime pinger at
+`/run-cycle`. The cloud self-refreshes its own market data each cycle.
+</Step>
+</Steps>
+
+## Honest about scope
+
+This is **self-host**, not in-app multi-tenant. We deliberately do **not** custody other people's API
+keys in a shared backend (that would be a security liability). Your keys live in *your* deployment. The
+only shared, public-read service is the live dApp's Supabase (read-only via a publishable key).
+
+## Repos
+
+- `HeliQuant/agents` — the firm (Python: desks, PM, campaign, edge_lab, on-chain recorder)
+- `HeliQuant/contracts` — ERC-8004 / ERC-8183 contracts (Mantle Sepolia)
+- `HeliQuant/frontend` — the Night Garage dApp (Next.js)

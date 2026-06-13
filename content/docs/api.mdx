@@ -1,0 +1,41 @@
+---
+title: API Reference
+description: The always-on firm's public read endpoints — the data behind the live dApp.
+---
+
+The firm runs as an always-on FastAPI service. These read endpoints power the live dApp and are public.
+
+> Base URL (live instance): `https://agents-production-5a3d.up.railway.app`
+
+## Endpoints
+
+| Endpoint | Returns |
+|---|---|
+| `GET /health` | service heartbeat |
+| `GET /campaign` | the live trading floor — opened/closed/win%/net, open positions (with desk votes), recent closes, `last_scan`, `learned` (cond_record), cooldowns |
+| `GET /trades` | full trade ledger — every resolved trade (entry/exit/PnL/exit-reason/regime/`anchor_tx`) |
+| `GET /agents` | the ERC-8004 roster — firm + 9 desks, tokenId, kind, ML flag, on-chain reputation + sealed-output count, reliability weight |
+| `GET /onchain` | the firm wallet's anchor transactions (Etherscan v2, Mantle Sepolia). `?wallet=0x..` to trace any address |
+| `GET /desks` | desk reliability weights (`0.6–1.4`, samples, align-rate) |
+| `GET /edges` | the edge registry — `validated` (gates aggression) + `candidate` (on probation) |
+| `GET /run-cycle` | external trigger (uptime pinger) — runs one org cycle |
+
+## Notes
+
+- **Deterministic shapes.** Every payload is honest: `validated` edges may be `{}`, reputation may read
+  zero (accruing), net P&L may be negative — paper at live prices.
+- **CORS open** for the browser dApp.
+- **Self-host:** the same service runs from your own `.env` — see [Run Your Own](/docs/self-host).
+
+## Example — the live floor
+
+```bash
+curl https://agents-production-5a3d.up.railway.app/campaign | jq '{opened, win_pct, net_usd, open_now}'
+```
+
+```json
+{ "opened": 126, "win_pct": 50.0, "net_usd": -8.40, "open_now": 4 }
+```
+
+> The numbers move — and we don't hide a negative net. The discipline (abstain, fade, demote) is the
+> point; profit only follows a *validated* edge.

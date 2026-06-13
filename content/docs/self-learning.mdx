@@ -1,0 +1,47 @@
+---
+title: Self-learning
+description: Three layers of learning — edge discovery, desk reliability, and tactical fade. It even demotes its own flagship.
+---
+
+HeliQuant learns at **three layers**. Losses aren't wasted — they're the training signal. The system is
+allowed to hold an **empty** validated-edge registry; promoting a dead edge would be the failure.
+
+## Layer 1 — Edge discovery ("earn the edge")
+
+The `edge_lab` tests a **hypothesis library** (OI-change, price-momentum, funding, order-flow imbalance ×
+contrarian/momentum) against an asset's real perp history under **one gate**:
+
+- cost-aware **out-of-sample** (round-trip ~20 bps: fee + spread + slippage),
+- **5-fold walk-forward**,
+- **outlier-robustness** (drop the single best fold — the edge must still hold),
+- **Benjamini–Hochberg FDR** correction (kills best-of-N false positives).
+
+An edge graduates to `validated_edges.json` (gates real aggression) only when *earned across folds*;
+otherwise it sits in `candidate_edges.json` on **probation**, requiring confirmation on consecutive
+**new-data** cycles. Today the validated registry is empty — MNT's flagship edge **decayed and was
+demoted** (Finding #11). Candidates (e.g. HYPE oi-contrarian, SUI funding-fade) await fresh-data proof.
+
+## Layer 2 — Desk reliability
+
+`desk_performance` scores each desk's stance vs realized direction and assigns a reliability weight
+`0.6–1.4` (≥15 samples, else neutral). The PM weights proven desks heavily and discounts unreliable ones
+— fighting "too many desks = noise". Weights are an **advisory prior**; the gates still bind.
+
+## Layer 3 — Tactical re-map (the live floor)
+
+The continuous campaign learns run-to-run:
+
+- **cond_record** — every closed trade dials a condition's throttle; a condition with a proven-losing
+  record **in that regime** trades at half size (regime-aware: a short that bled in an up-market isn't
+  penalised in a down-market).
+- **failed_conditions** — a losing round benches a condition with a TTL (forgiven later, so it can
+  re-learn).
+- **asset-performance fade** — an asset with a proven-losing realized record (cold win-rate + net < 0)
+  trades smaller, so capital auto-concentrates on what works.
+- **regime veto** — counter-trend entries are refused; the gate won't bet against a clear regime.
+
+## The honest spine
+
+> Promote on evidence, confirm before you trust, demote when it decays. That's the line between
+> self-learning and self-deception. New hypotheses — including ML — must out-earn the gate; none gets a
+> free pass.

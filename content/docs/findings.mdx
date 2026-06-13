@@ -1,0 +1,108 @@
+---
+title: Findings & Insights
+description: 23 honest, data-backed discoveries from building an autonomous trading firm on Mantle — including what doesn't work.
+---
+
+> Every finding traces to a real run or probe. **We publish what DOESN'T work too** — honesty is the
+> product. The discipline that retires a decayed edge is worth more than the edge.
+
+## On Smart Money & Whales — the Mantle reality
+
+**1. Mantle's smart money is genuinely sparse — confirmed across 4 premium sources.**
+Etherscan, Cielo, CoinAlyze *and* Nansen all converge: only **~1–2 individual smart-money traders** are
+active on Mantle's core assets. It's not a data-access gap — the activity isn't there yet. So HeliQuant
+doesn't fake "whale-following" on Mantle; it tracks what's real.
+
+**2. The dynamic Whale-vs-Contract insight.**
+*Who holds a token* decides the signal. EOA-rich assets (BTC/ETH) → track individual whales. Contract-
+heavy assets (Mantle LSTs) → track *contract flows*. HeliQuant measures holder composition on-chain
+(`eth_getCode`) and **auto-selects the mode per asset**.
+
+**3. You can't track whales one wallet at a time anymore.**
+~80% of transactions route through private mempools; ghost-deposits and wallet-splitting are standard.
+HeliQuant uses **aggregate cohort flow** (manipulation-robust), not single-address alerts.
+
+**4. mETH staking is the real Mantle conviction signal.**
+While individual-whale data is thin, **~$358M is locked in mETH staking** — a hard-to-fake on-chain
+conviction metric worth tracking.
+
+## On Alpha & Strategies — what's real, what isn't
+
+**5. Accuracy ≠ Profit.** Our ML regime classifier reads regime at **82–88% out-of-sample accuracy** —
+yet trading those predictions did *not* profit in simulation. Classification accuracy is not cost-
+adjusted profit. So the regime engine's real job is **capital allocation & risk**, not price prediction.
+
+**6. No magic price-TA alpha — and we say so.** Trend-following and mean-reversion both **fail rigorous
+walk-forward OOS**. Eye-catching single-window returns died under full-history testing.
+
+**7. The one real edge (then): OI-Contrarian, hedge-like.** Open-interest build-up mean-reverts.
+Contrarian positioning produced **+47–64% aggregate OOS while the market fell ~60%** — an anti-correlated
+hedge. Caveat: amplified by a bear environment and fold-inconsistent — deployed as a risk-controlled
+hedge, not a guarantee.
+
+**8. Funding-capture doesn't work here.** Funding rates are too small and flip sign too often — fees eat
+the carry (a naive version lost 30–39%). Tested, measured, rejected.
+
+**11. We validated an edge on MNT — then our own self-learning RETIRED it.** The OI-contrarian signal
+once cleared the cost-aware OOS bar on a one-year MNT window (+25.1% net). On **fresh full-history data**
+the edge had **decayed** to −7.2% OOS. The loop **demoted it on the evidence** — the validated registry
+is now **empty**. The edge was never the product — *the discipline that retires a decayed flagship is.*
+
+## On Execution & Risk
+
+**12. A trade is a hypothesis with an invalidation — gated, not guessed.** Every decision becomes a
+ticket: entry zone, a **structural stop**, an invalidation, a TP ladder, and a hard **R:R ≥ 2:1 gate**.
+The LLM judges direction; deterministic code computes the numbers; the gate enforces safety.
+
+**13. Aggression earned by data.** SAFE by default; sizes up to AGGRESSIVE (fractional-Kelly, capped 3%
+risk / 5× leverage, 20% drawdown breaker) **only** when an OOS-validated edge's live signal fires.
+
+**14. Verifiable on Mantle — the decision ledger, on-chain.** Each decision's hash is anchored in a live
+Mantle transaction under a **broadcast-on-ENTER** policy. On-chain is the tamper-proof audit trail.
+
+## On Method — the differentiator
+
+**9. Honesty-by-design.** Deterministic tools compute; LLMs debate; the system **rejects any strategy
+that doesn't survive OOS**. We even retracted our own earlier headline numbers when they failed.
+
+**15. We rejected our own +96% backtest.** A market-neutral mETH/ETH convergence strategy showed +96%
+OOS / 95.6% win — but under realistic slippage it turns to **−73 bps per trade**, a thin-liquidity
+artifact. We threw it out.
+
+**16. Edge fired — and the firm still held.** In a live MNT run the OI-Contrarian edge fired an
+actionable LONG. The PM still **ABSTAINED**: the R:R gate couldn't clear and macro read Extreme Fear.
+
+**17. We hunted four more assets — and earned none.** Cost-aware OOS on BTC/ETH/mETH/HYPE: BTC's OI edge
+is **eaten by fees**, ETH/SOL flip to momentum and lose, mETH has no liquid perp, HYPE's OI moves *with*
+price (momentum, not contrarian). Only MNT cleared the bar — and it has since decayed (see #11).
+
+**18. AGGRESSIVE proven as a live truth-table.** High-conviction unlocks if-and-only-if a validated edge
+(≥20 trades) *and* the account isn't past a 20% drawdown — proven as a 4-case truth-table on real data.
+
+**19. 39% win rate, still +24% out-of-sample.** Funded $1,000, trading the validated edge OOS with live
+AGGRESSIVE sizing, HeliQuant won only 13/33 (39.4%) — and finished at **$1,243.81 (+24.4%)**, net of
+fees on real Bybit data. Profit from **payoff asymmetry**, not hit-rate.
+
+**20. An asset-onboarding lab that held back a +92% candidate.** Onboarding tests a hypothesis library
+under one gate: cost-aware OOS + 5-fold walk-forward + outlier-robustness (drop the best fold). HYPE's
+order-flow-contrarian flashed +92% OOS — but ~65% came from one fold; drop it → +1.9%. So we **held it
+back**. The registry grows only when an edge is *earned across folds*.
+
+**21. Validation isn't claimed — it's anchored on Mantle.** When an edge clears the gate, its validation
+record (asset, edge, p_win, payoff, sample_n, OOS-ROI, tokenId) is hashed and anchored in a Mantle tx.
+"Validated" is **auditable, not asserted**.
+
+**22. We tested ML too — no free pass.** RandomForest + XGBoost to predict 24h direction, traded OOS
+under the same gate: **~51% accuracy, −50% to −62% OOS net of fees** → abstain. ML plugs in as just
+another signal, judged by the same evidence. *(The good ML — the regime classifier — stays as a capital
+allocator, not a price predictor.)*
+
+**23. Self-learning, proven on LIVE-fetched data.** We re-ran the gate on fresh HYPE data; the edge
+**crossed (+142% OOS, walk-forward robust)** — the loop responded to evidence. But it did NOT graduate:
+a just-crossed, regime-dependent edge goes on **PROBATION**, requiring confirmation across consecutive
+new-data cycles. *Promote on evidence, confirm before you trust.*
+
+---
+
+> HeliQuant's edge isn't a magic indicator — it's rigor, multi-source integration, Mantle-native
+> verifiability, and brutal honesty. Verified by real runs; auditable on-chain.

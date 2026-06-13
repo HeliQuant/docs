@@ -1,0 +1,33 @@
+---
+title: Verifiability & Honesty
+description: The design constraint that shapes everything — every number is reproducible or it doesn't ship.
+---
+
+Honesty isn't a tagline here; it's the **design constraint**. Most "AI traders" optimize for a
+screenshot. HeliQuant optimizes for a number you can reproduce.
+
+## The rules we hold
+
+<Cards>
+  <Card title="No unproven number ships" description="Every strategy must survive cost-aware out-of-sample + walk-forward + outlier-robustness. We retracted our own early headline returns when they failed full-history." />
+  <Card title="We publish failures" description="BTC has no cost-aware edge. Funding-capture loses. A +96% backtest was a thin-liquidity artifact. Directional ML scores ~51%. All documented." />
+  <Card title="Decayed edges get demoted" description="The MNT flagship edge decayed on fresh data → the loop retired it → the validated registry is empty. We'd rather hold nothing than trade a dead edge." />
+  <Card title="Verifiable, not asserted" description="Decisions, desk outputs, and edge validations are hashed and anchored on Mantle. 'Validated' means auditable on Mantlescan." />
+</Cards>
+
+## What "verifiable on Mantle" actually means
+
+- **Identity** — 10 ERC-8004 agent tokens (firm + 9 desks) in the IdentityRegistry.
+- **Sealed outputs** — each desk output hash written as a ValidationRegistry credential
+  (`CredentialRecorded` event) per cycle.
+- **Anchored trades** — each resolved trade's outcome SHA-256 in a transaction's calldata, recomputable
+  by anyone from the public record.
+
+Honest scope: these are **proof-of-existence hashes**, not capital moving. The paper floor trades at
+live prices (Bybit testnet when armed); real capital stays gated behind a validated edge. We say so out
+loud — *on the site, inside the product, and in the [findings](/docs/findings).*
+
+## Why this is the moat
+
+A magic indicator can be copied. **Rigor that retires its own flagship** can't be faked — and it's
+exactly what a counterparty (or a hackathon judge) should trust. The discipline *is* the product.

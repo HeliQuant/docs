@@ -1,0 +1,83 @@
+@import url('https://fonts.googleapis.com/css2?family=Saira+Extra+Condensed:wght@500;600;700;800&family=Saira:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+
+/* ═══════════════ HeliQuant "NIGHT GARAGE" — dark automotive brutalism ═══════════════
+   pitch shop-floor · carbon panels · bone ink · ONE chartreuse livery accent · hazard seams.
+   Overrides Fumadocs' design tokens so the whole docs site wears the brand. */
+
+:root,
+.dark {
+  --color-fd-background: #0b0b0b;          /* pitch — night shop floor */
+  --color-fd-foreground: #f2efe6;          /* bone ink */
+  --color-fd-card: #161614;                /* carbon panel */
+  --color-fd-card-foreground: #f2efe6;
+  --color-fd-popover: #161614;
+  --color-fd-popover-foreground: #f2efe6;
+  --color-fd-muted: #1e1e1b;               /* raised inset */
+  --color-fd-muted-foreground: #8b8b80;    /* steel */
+  --color-fd-border: rgba(242, 239, 230, 0.14);
+  --color-fd-primary: #c9f24b;             /* chartreuse livery accent */
+  --color-fd-primary-foreground: #0b0b0b;
+  --color-fd-secondary: #1e1e1b;
+  --color-fd-secondary-foreground: #f2efe6;
+  --color-fd-accent: #1e1e1b;
+  --color-fd-accent-foreground: #c9f24b;
+  --color-fd-ring: #c9f24b;
+}
+
+html {
+  scrollbar-gutter: stable;
+  color-scheme: dark;
+}
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}
+
+body {
+  font-family: 'Saira', ui-sans-serif, system-ui, sans-serif;
+  background: #0b0b0b;
+}
+
+/* condensed motorsport headlines */
+h1, h2, h3, .nd-heading, #nd-nav .font-medium, article h1, article h2, article h3 {
+  font-family: 'Saira Extra Condensed', 'Saira', ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.01em;
+}
+code, pre, kbd, .font-mono {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+/* hazard seam under the top nav — the signature motif */
+#nd-nav, header#nd-subnav, header {
+  border-bottom-color: rgba(242, 239, 230, 0.14);
+}
+#nd-nav::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: -3px; height: 3px;
+  background-image: repeating-linear-gradient(-45deg, #c9f24b 0 10px, #0b0b0b 10px 20px);
+  opacity: 0.85;
+}
+
+/* carbon dot-grid texture on the page body */
+#nd-docs-layout, .container, main {
+  background-image: radial-gradient(rgba(242, 239, 230, 0.04) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+/* chartreuse links + active sidebar = livery accent */
+article a { color: #c9f24b; text-underline-offset: 3px; }
+a[data-active='true'] { color: #c9f24b !important; }
+
+/* gear-spin keyframe for any automotive accent SVG (use className="gear-spin") */
+@keyframes hq-gear { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+.gear-spin { animation: hq-gear 18s linear infinite; }
+.gear-spin-rev { animation: hq-gear 24s linear infinite reverse; }
+
+/* cards as carbon plates with hard chartreuse offset shadow on hover */
+#nd-docs-layout a[class*='rounded'], .card {
+  transition: box-shadow 140ms ease, transform 140ms ease;
+}

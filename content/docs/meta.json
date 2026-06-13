@@ -1,0 +1,15 @@
+{
+  "title": "HeliQuant",
+  "root": true,
+  "pages": [
+    "index",
+    "architecture",
+    "desks",
+    "self-learning",
+    "on-chain",
+    "findings",
+    "verifiability",
+    "self-host",
+    "api"
+  ]
+}

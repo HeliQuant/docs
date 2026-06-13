@@ -1,0 +1,54 @@
+---
+title: On-chain (Mantle)
+description: 10 ERC-8004 agent identities, every desk output sealed, every trade anchored — verifiable, not claimed.
+---
+
+HeliQuant isn't "on-chain" as a slide. The firm has a real, verifiable footprint on **Mantle Sepolia**
+(chain id `5003`): a registered identity, accruing reputation, sealed outputs, and anchored trades.
+
+> Signer wallet: `0x48379F4d1427209311E9FF0bcC4a354953ea631B` · explorer:
+> [sepolia.mantlescan.xyz](https://sepolia.mantlescan.xyz)
+
+## The deployed contracts
+
+| Contract | Address | Standard / role |
+|---|---|---|
+| IdentityRegistry | `0x0fae6342195fdC0007b94fb3293bF56463C55ff3` | **ERC-8004** agent identity (ERC-721 base) |
+| ReputationRegistry | `0x5a18F8D33d551666233701025754274DCA9b2929` | **ERC-8004** reputation (track record) |
+| ValidationRegistry | `0x8e55E41dC9a93E30AAf580dba0b3Ee6b34e14A1b` | **ERC-8004** validation credentials |
+| JobManager | `0x10421eb1a230f484eedb64642505d073e791823c` | **ERC-8183** hire → escrow → settle |
+| TradingVault | `0x3BbD1f5e8733e901A8FdFf5cFA7E18e575896424` | per-job escrow + DEX execution surface |
+| AlloraConsumer | `0x7a072465ac232709c114c5daa842a9b7010d1d4f` | on-chain Allora oracle reader |
+
+The ERC layering on a single agent: **ERC-721** (token base) → **ERC-8004** (trustless-agent registry)
+→ **ERC-7857** (transferable agent NFT) → **ERC-8183** (job escrow & settlement).
+
+## 10 agents registered
+
+The firm + all 9 desks are registered ERC-8004 identities — *"nine desks" made real on-chain*:
+
+| tokenId | Agent | tokenId | Agent |
+|---|---|---|---|
+| **2** | HeliQuant (firm) | 7 | Smart-Money Flow |
+| **3** | Regime/Technical *(the ML — XGBoost)* | 8 | Smart-Social |
+| 4 | Macro (Allora) | 9 | OI-Contrarian |
+| 5 | On-chain/Risk | 10 | flow-intel |
+| 6 | Research | 11 | whale |
+
+## Three on-chain primitives
+
+<Cards>
+  <Card title="Identity" description="register() mints an ERC-8004 agent token per desk. Verifiable roster of who's in the firm." />
+  <Card title="Sealed outputs" description="Every org cycle, each desk's output hash is written as a ValidationRegistry credential (CredentialRecorded event) against its tokenId." />
+  <Card title="Anchored trades" description="Each resolved campaign trade's outcome SHA-256 is written into a Mantle tx's calldata — tap any /ledger row to verify on Mantlescan." />
+</Cards>
+
+## Honest scope
+
+- **Decisions & outputs are sealed** (hash proof-of-existence) — verifiable, tamper-proof. Trades on
+  the paper floor are **off-chain** (Bybit testnet when armed); the chain records the *decisions*, not
+  every paper fill.
+- **Reputation accrues forward** — it reads low until enough outcomes resolve. We don't pre-seed a
+  flattering number.
+- **The validation anchor is a snapshot**, not a forever-claim: when an edge later decays, the on-chain
+  record stays as an immutable block-time fact, and the live registry demotes it.
