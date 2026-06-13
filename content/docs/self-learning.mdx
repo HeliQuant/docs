@@ -80,9 +80,16 @@ and hold-time**, concentrating capital on what works and starving what bleeds:
   penalised in a down-market).
 - **failed_conditions** — a losing round benches a condition with a TTL (forgiven later, so it can
   re-learn).
-- **asset-performance** — a **cold** asset (losing record) trades **half size** *and* opens only **1 of
-  every 3 steps**; a **deep-cold** one is **benched** (with a periodic probe); a **warm** asset (a proven
-  winner) is **boosted to 1.4×**. Capital *and* frequency tilt toward what works.
+- **asset-performance ladder** — capital *and* frequency tilt to what works: a **cold** asset (losing
+  record) trades **half size** *and* opens only **1 of 3 steps**; a **deep-cold** one is **benched**
+  (periodic probe); a **warm** asset is **boosted** — `1.3×` for a decent proven record (≥55% win, ≥8
+  trades), `1.6×` for a **strong** one (≥66% win) — always **capped below** the `2×` reserved for a
+  validated edge. (A hot recent record earns more capital; it is not mistaken for an edge.)
+- **calibrated TP/SL** — TP/SL distances are *measured* per asset from realized excursions (Maximum
+  Favourable / Adverse Excursion), not guessed. The old fixed 2.5×-ATR TP was reached by only **0–21%**
+  of trades — so a reachable, per-asset TP replaced it (`scripts/95`).
+- **trailing stop** — a trend-follow trade ratchets its stop toward price so a genuine run isn't capped at
+  a fixed TP; contrarian/fade trades keep a fixed TP (meant to snap, not run).
 - **dynamic horizon** — the hold-time adapts to the setup type: a **trend-follow** trade is held longer
   (8h, trends persist), a **contrarian/fade** is short (3h, it snaps fast or the thesis is wrong), a
   **validated edge** runs (24h).
@@ -97,7 +104,7 @@ flowchart TB
   R --> CR[cond_record — losing cond fades to half]:::learn
   R --> FC[failed_conditions — losing round benched TTL]:::learn
   R --> AP[asset record]:::gate
-  AP --> WARM[warm winner — boost 1.4x]:::good
+  AP --> WARM[warm/strong winner — boost 1.3x to 1.6x]:::good
   AP --> COLD[cold loser — half size + open 1 of 3]:::bad
   AP --> DEEP[deep-cold — bench + periodic probe]:::bad
   classDef node fill:#161614,stroke:#c9f24b,color:#f2efe6;
@@ -105,6 +112,34 @@ flowchart TB
   classDef learn fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
   classDef good fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
   classDef bad fill:#161614,stroke:#8b8b80,color:#8b8b80;
+`}
+/>
+
+## Learning from abstention (it learns even when it *doesn't* trade)
+
+Most systems learn only from trades. HeliQuant also scores its **abstentions**: when the clear-trend gate
+declines a setup, it logs a **shadow** of the would-be trade and judges it at its horizon against real
+price — was abstaining **right** (the skipped trade would have lost) or **wrong** (it would have won)?
+Aggregated per gate (`shadow_record`, surfaced on `/campaign` as `shadow_learning`), this turns idle and
+cooldown time into signal: the firm measures whether its own discipline actually pays, and can tell an
+over-restrictive gate from a protective one. It's scored against **real candles**, so it isn't self-flattery.
+
+<Mermaid
+  caption="Abstention scoring — the firm judges the trades it declined, so even saying no teaches it"
+  chart={`
+flowchart LR
+  A[clear-trend gate ABSTAINS]:::gate --> S[log a shadow of the would-be trade]:::node
+  S --> W[wait its horizon]:::node
+  W --> J{judge vs real price}:::gate
+  J -->|would have lost| R[abstain was RIGHT — discipline paid]:::good
+  J -->|would have won| X[abstain was WRONG — gate too tight]:::bad
+  R --> SR[shadow_record per gate]:::learn
+  X --> SR
+  classDef gate fill:#1e1e1b,stroke:#c9f24b,color:#f2efe6;
+  classDef node fill:#161614,stroke:#8b8b80,color:#f2efe6;
+  classDef good fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
+  classDef bad fill:#161614,stroke:#8b8b80,color:#8b8b80;
+  classDef learn fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
 `}
 />
 

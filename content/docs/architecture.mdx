@@ -122,10 +122,12 @@ sequenceDiagram
 
 ## The continuous trading floor
 
-Alongside the LLM org, a **campaign** runs a continuous paper floor at live prices: desk-vote-driven
-positions, ATR stops, a regime veto, no identical-bet stacking, and an **asset-performance fade** that
-shrinks size on proven-losing assets — capital auto-concentrates on what works. Every position is a
-little state machine:
+Alongside the LLM org, a **campaign** runs a continuous paper floor at live prices, driven by the same
+desk votes. It only trades a **clear trend** (a flat/ambiguous read abstains), sizes each position on a
+**warm/cold ladder** (proven winners boosted up to 1.6×, proven losers half-size + throttled), and times
+it on a **dynamic horizon** (3h fade / 8h trend). Stops are **calibrated per asset** from realized
+excursions (MFE/MAE — the fixed 2.5× TP was reached only 0–21% of the time), trend trades **trail** to let
+a run go, and it learns from every close **and every abstention**. Every position is a little state machine:
 
 <Mermaid
   caption="Campaign position lifecycle — open, manage, exit, learn"
@@ -134,22 +136,24 @@ stateDiagram-v2
   [*] --> Scanning
   Scanning --> Blocked: cooldown / deep-cold bench / mid-range / macro event-risk
   Blocked --> Scanning: gate clears (TTL or probe trade)
-  Scanning --> Open: desk votes pass + confluence
-  Open --> TP: +2.5× ATR target
-  Open --> SL: −1.8× ATR stop
+  Scanning --> Open: clear trend + desk votes (else abstain)
+  Open --> TP: calibrated TP (reachable, per-asset)
+  Open --> SL: calibrated SL (per-asset)
+  Open --> TRAIL: trend trade — ratchet, exit on reversal
   Open --> STALL: ≥2h & |move| < 0.3%
-  Open --> TIME: 4h max-hold
+  Open --> TIME: dynamic cap (3h fade / 8h trend)
   TP --> Learn
   SL --> Learn
+  TRAIL --> Learn
   STALL --> Learn
   TIME --> Learn
-  Learn --> Scanning: update cond_record + asset-perf + cooldown
+  Learn --> Scanning: cond_record + asset ladder + shadow-score
 `}
 />
 
-The floor is **self-driving**: any read of `/campaign` or `/trades` opportunistically advances a step in
-the background (lock-guarded, ≤1 step / 15 min), so it keeps trading on real traffic even if the external
-keep-alive pinger lapses.
+The floor is **self-driving**: any read of `/campaign` or `/trades` (and every keep-alive ping of
+`/run-cycle`) opportunistically advances a step in the background (lock-guarded, ≤1 step / 8 min), so it
+keeps trading on real traffic even if the external pinger lapses.
 
 ## Stack
 
