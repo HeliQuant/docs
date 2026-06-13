@@ -5,21 +5,22 @@ import { useEffect, useId, useState } from 'react';
 /**
  * Night-Garage themed Mermaid renderer (client-only — Mermaid needs the DOM).
  * Use in MDX:  <Mermaid caption="One cycle" chart={`sequenceDiagram ...`} />
- * Palette mirrors app/global.css: pitch #0b0b0b · carbon #161614 · bone #f2efe6 ·
- * steel #8b8b80 · chartreuse livery #c9f24b.
+ * Pass `wide` for a dense/wide chart: it renders at NATURAL size and the wrapper scrolls,
+ * so the text stays legible instead of being shrunk to fit. Default charts stay responsive.
+ * Palette mirrors app/global.css.
  */
 const HQ = {
   pitch: '#0b0b0b',
   carbon: '#161614',
   inset: '#1e1e1b',
   bone: '#f2efe6',
-  steel: '#b9b9ad',
+  steel: '#8b8b80',
   livery: '#c9f24b',
 } as const;
 
 let _seq = 0;
 
-export function Mermaid({ chart, caption }: { chart: string; caption?: string }) {
+export function Mermaid({ chart, caption, wide = false }: { chart: string; caption?: string; wide?: boolean }) {
   const reactId = useId().replace(/[^a-zA-Z0-9]/g, '');
   const [svg, setSvg] = useState('');
   const [err, setErr] = useState('');
@@ -34,21 +35,18 @@ export function Mermaid({ chart, caption }: { chart: string; caption?: string })
           securityLevel: 'loose',
           theme: 'base',
           fontFamily: '"IBM Plex Mono", ui-monospace, monospace',
-          fontSize: 18,
-          // render every diagram at its NATURAL size (no shrink-to-fit) so text stays legible;
-          // the wrapper scrolls horizontally for wide ones.
-          flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis', nodeSpacing: 55, rankSpacing: 72, padding: 16 },
-          sequence: { useMaxWidth: false, actorFontSize: 17, noteFontSize: 15, messageFontSize: 15, boxMargin: 12, width: 175, height: 48 },
-          state: { useMaxWidth: false, padding: 14 },
-          class: { useMaxWidth: false },
-          journey: { useMaxWidth: false },
-          quadrantChart: { useMaxWidth: false, chartWidth: 580, chartHeight: 560, pointLabelFontSize: 15, quadrantLabelFontSize: 17, titleFontSize: 22, pointTextPadding: 8 },
-          mindmap: { useMaxWidth: false, padding: 16, maxNodeWidth: 240 },
-          pie: { useMaxWidth: false },
+          // only `wide` charts opt out of shrink-to-fit (then the wrapper scrolls)
+          flowchart: { useMaxWidth: !wide, htmlLabels: true, curve: 'basis' },
+          sequence: { useMaxWidth: !wide },
+          state: { useMaxWidth: !wide },
+          class: { useMaxWidth: !wide },
+          journey: { useMaxWidth: !wide },
+          quadrantChart: { useMaxWidth: !wide },
+          mindmap: { useMaxWidth: !wide },
           themeVariables: {
             darkMode: true,
             background: HQ.pitch,
-            primaryColor: '#22221f',
+            primaryColor: HQ.carbon,
             primaryTextColor: HQ.bone,
             primaryBorderColor: HQ.livery,
             secondaryColor: HQ.inset,
@@ -57,16 +55,16 @@ export function Mermaid({ chart, caption }: { chart: string; caption?: string })
             tertiaryColor: HQ.inset,
             tertiaryTextColor: HQ.bone,
             tertiaryBorderColor: HQ.steel,
-            lineColor: '#d2d2c8',
+            lineColor: HQ.steel,
             textColor: HQ.bone,
-            mainBkg: '#22221f',
+            mainBkg: HQ.carbon,
             nodeBorder: HQ.livery,
             clusterBkg: 'rgba(201,242,75,0.05)',
             clusterBorder: 'rgba(242,239,230,0.18)',
             titleColor: HQ.livery,
             edgeLabelBackground: HQ.pitch,
             // sequence
-            actorBkg: '#22221f',
+            actorBkg: HQ.carbon,
             actorBorder: HQ.livery,
             actorTextColor: HQ.bone,
             signalColor: HQ.bone,
@@ -80,14 +78,7 @@ export function Mermaid({ chart, caption }: { chart: string; caption?: string })
             noteTextColor: HQ.bone,
             activationBkgColor: HQ.inset,
             // state / class
-            stateBkg: '#22221f',
-            // mindmap node palette — consistent + readable (no muddy grey root)
-            cScale0: '#2e3f12', cScaleLabel0: HQ.bone,
-            cScale1: '#22221f', cScaleLabel1: HQ.bone,
-            cScale2: '#22221f', cScaleLabel2: HQ.bone,
-            cScale3: '#22221f', cScaleLabel3: HQ.bone,
-            cScale4: '#22221f', cScaleLabel4: HQ.bone,
-            cScale5: '#22221f', cScaleLabel5: HQ.bone,
+            stateBkg: HQ.carbon,
             // pie
             pie1: HQ.livery,
             pie2: HQ.steel,
@@ -121,7 +112,7 @@ export function Mermaid({ chart, caption }: { chart: string; caption?: string })
     return () => {
       alive = false;
     };
-  }, [chart, reactId]);
+  }, [chart, reactId, wide]);
 
   if (err) {
     return (
@@ -131,17 +122,20 @@ export function Mermaid({ chart, caption }: { chart: string; caption?: string })
     );
   }
 
+  const base = 'hq-mermaid overflow-x-auto rounded-none border border-[rgba(242,239,230,0.14)] bg-[#0e0e0c] p-4';
+  const cls = wide
+    ? `${base} [&_svg]:!max-w-none [&_svg]:min-w-fit`
+    : `${base} flex justify-center [&_svg]:h-auto [&_svg]:max-w-full`;
+
   return (
     <figure className="my-7">
-      <div className="hq-mermaid overflow-x-auto rounded-none border border-[rgba(242,239,230,0.16)] bg-[#0b0b0b] p-5">
-        <div
-          className="[&>svg]:mx-auto [&>svg]:h-auto [&>svg]:!max-w-none [&>svg]:min-w-fit"
-          // svg is produced by Mermaid from trusted, author-written chart strings
-          dangerouslySetInnerHTML={{ __html: svg || '' }}
-        />
-      </div>
+      <div
+        className={cls}
+        // svg is produced by Mermaid from trusted, author-written chart strings
+        dangerouslySetInnerHTML={{ __html: svg || '' }}
+      />
       {caption ? (
-        <figcaption className="mt-2.5 text-center font-mono text-xs uppercase tracking-wider text-[#9a9a8e]">
+        <figcaption className="mt-2 text-center font-mono text-xs uppercase tracking-wider text-[#8b8b80]">
           {caption}
         </figcaption>
       ) : null}

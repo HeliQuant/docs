@@ -81,3 +81,17 @@ a[data-active='true'] { color: #c9f24b !important; }
 #nd-docs-layout a[class*='rounded'], .card {
   transition: box-shadow 140ms ease, transform 140ms ease;
 }
+
+/* ── code blocks ───────────────────────────────────────────────────────────
+   This docs site is ALWAYS dark (forced via :root above; <html> has no `.dark`
+   class), so Fumadocs' dual-theme Shiki — which swaps to its dark palette only
+   under `.dark` — was rendering the LIGHT tokens (dark-grey on near-black =
+   invisible). Force the dark (github-dark-high-contrast) tokens + bg so JSON /
+   code reads high-contrast. */
+.shiki,
+.shiki span {
+  color: var(--shiki-dark, #f0f3f6) !important;
+}
+.shiki {
+  background-color: var(--shiki-dark-bg, #0a0c10) !important;
+}

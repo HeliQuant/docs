@@ -18,6 +18,13 @@ export const docs = defineDocs({
 
 export default defineConfig({
   mdxOptions: {
-    // MDX options
+    // higher-contrast code blocks — the default dark theme rendered JSON keys too dim on the
+    // near-black "Night Garage" background. github-dark-high-contrast brightens the tokens.
+    rehypeCodeOptions: {
+      themes: {
+        light: 'github-light',
+        dark: 'github-dark-high-contrast',
+      },
+    },
   },
 });
