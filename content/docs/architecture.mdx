@@ -6,32 +6,31 @@ description: How the firm runs — 9 desks debate, the PM decides, every cycle i
 HeliQuant is structured like a trading firm: specialist **desks** produce domain reads, **researchers**
 argue bull-vs-bear, and a **Portfolio Manager** synthesizes one disciplined decision per cycle.
 
-## System map — data flow
+## How a decision flows
 
 Every desk pulls **real data** (no placeholders) from a live source, an LLM interprets it into a stance,
 the debate stress-tests it, and the PM turns the weighted picture into a single recorded decision.
 
 <Mermaid
-  caption="Data-flow: live sources → 9 specialist desks → debate → PM → recorded decision"
+  wide
+  caption="Activity flow — one cycle from gather to a recorded ENTER / ABSTAIN"
   chart={`
 flowchart LR
-  SRC["① 6 LIVE SOURCES<br/>Bybit · Hyperliquid · Allora<br/>DeFiLlama · Nansen/Elfa · Etherscan"]:::src
-  DESKS["② 9 SPECIALIST DESKS<br/>each a different LLM"]:::desk
-  DEB{{"③ BULL vs BEAR<br/>2-round debate"}}:::deb
-  PM[["④ PORTFOLIO MANAGER<br/>weighted desks · R:R ≥ 2:1"]]:::pm
-  OUT[/"ENTER · or · ABSTAIN"/]:::out
-  CH[("Mantle<br/>hash + credentials")]:::chain
-  SB[("Supabase<br/>state + ledger")]:::store
-  SRC --> DESKS --> DEB --> PM --> OUT
-  PM --> CH
-  PM --> SB
-  classDef src fill:#161614,stroke:#8b8b80,color:#f2efe6;
-  classDef desk fill:#161614,stroke:#c9f24b,color:#f2efe6;
-  classDef deb fill:#1e1e1b,stroke:#c9f24b,color:#f2efe6;
-  classDef pm fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
-  classDef out fill:#161614,stroke:#8b8b80,color:#f2efe6;
-  classDef chain fill:#161614,stroke:#c9f24b,color:#c9f24b;
-  classDef store fill:#161614,stroke:#8b8b80,color:#f2efe6;
+  S((start)):::se --> A[Gather · 6 live sources]:::act
+  A --> B[Analyze · 9 desks]:::act
+  B --> C[Debate · bull vs bear]:::act
+  C --> D[PM synthesize · weight by reliability]:::act
+  D --> Q{edge AND<br/>R:R ≥ 2:1 ?}:::dec
+  Q -->|yes| E[ENTER · risk-sized]:::enter
+  Q -->|no| F[ABSTAIN · flat]:::abstain
+  E --> R[Record · Mantle + Supabase]:::act
+  F --> R
+  R --> Z((done)):::se
+  classDef se fill:#c9f24b,stroke:#c9f24b,color:#0b0b0b;
+  classDef act fill:#161614,stroke:#8b8b80,color:#f2efe6;
+  classDef dec fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
+  classDef enter fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
+  classDef abstain fill:#161614,stroke:#8b8b80,color:#8b8b80;
 `}
 />
 
