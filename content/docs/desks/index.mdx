@@ -27,23 +27,20 @@ firm tilts which family leads based on each asset's measured character (see belo
 <Mermaid
   caption="Desk taxonomy — prediction vs flow vs context"
   chart={`
-flowchart LR
-  ROOT([HeliQuant · 9 desks]):::root
-  ROOT --> PRED[Prediction]:::fam
-  ROOT --> FLOW[Flow / informed-actor]:::fam
-  ROOT --> CTX[Context]:::fam
-  PRED --> P1[Regime/Technical — ML 82.6% OOS]:::leaf
-  PRED --> P2[OI-Contrarian — the validated edge]:::leaf
-  FLOW --> F1[Smart-Money Flow]:::leaf
-  FLOW --> F2[On-chain/Risk]:::leaf
-  FLOW --> F3[whale — Hyperliquid]:::leaf
-  FLOW --> F4[flow-intel — self-learning]:::leaf
-  CTX --> C1[Macro — Allora oracle]:::leaf
-  CTX --> C2[Research — public APIs]:::leaf
-  CTX --> C3[Smart-Social — Elfa]:::leaf
-  classDef root fill:#2e3f12,stroke:#c9f24b,color:#f2efe6;
-  classDef fam fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
-  classDef leaf fill:#22221f,stroke:#b9b9ad,color:#f2efe6;
+mindmap
+  root((HeliQuant 9 desks))
+    Prediction
+      Regime/Technical — ML 82.6% OOS
+      OI-Contrarian — the validated edge
+    Flow / informed-actor
+      Smart-Money Flow
+      On-chain/Risk
+      whale — Hyperliquid
+      flow-intel — self-learning
+    Context
+      Macro — Allora oracle
+      Research — public APIs
+      Smart-Social — Elfa
 `}
 />
 
