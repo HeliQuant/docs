@@ -14,36 +14,15 @@ the debate stress-tests it, and the PM turns the weighted picture into a single 
 <Mermaid
   caption="Data-flow: live sources → 9 specialist desks → debate → PM → recorded decision"
   chart={`
-flowchart TB
-  subgraph SRC["① DATA SOURCES — real, mostly free"]
-    direction LR
-    BY[Bybit market]:::src
-    HL[Hyperliquid whale]:::src
-    AL[Allora oracle]:::src
-    DL[DeFiLlama TVL/fees]:::src
-    NA[Nansen · Elfa]:::src
-    ES[Etherscan v2]:::src
-  end
-  subgraph DESKS["② 9 SPECIALIST DESKS — each a different LLM"]
-    direction LR
-    D1[Regime · ML]:::desk
-    D2[Macro · Allora]:::desk
-    D3[On-chain/Risk]:::desk
-    D4[Research]:::desk
-    D5[Smart-Money]:::desk
-    D6[Smart-Social]:::desk
-    D7[OI-Contrarian]:::desk
-    D8[flow-intel]:::desk
-    D9[whale]:::desk
-  end
-  DEB{{"③ Bull vs Bear — 2-round debate"}}:::deb
-  PM[["④ Portfolio Manager<br/>weigh by learned reliability · R:R ≥ 2:1 gate"]]:::pm
-  OUT[/"ENTER (validated edge) · or · ABSTAIN"/]:::out
-  CH[("Mantle — decision hash<br/>+ per-desk credentials")]:::chain
-  SB[("Supabase — state + ledger")]:::store
-
-  SRC --> DESKS --> DEB --> PM
-  PM --> OUT
+flowchart LR
+  SRC["① 6 LIVE SOURCES<br/>Bybit · Hyperliquid · Allora<br/>DeFiLlama · Nansen/Elfa · Etherscan"]:::src
+  DESKS["② 9 SPECIALIST DESKS<br/>each a different LLM"]:::desk
+  DEB{{"③ BULL vs BEAR<br/>2-round debate"}}:::deb
+  PM[["④ PORTFOLIO MANAGER<br/>weighted desks · R:R ≥ 2:1"]]:::pm
+  OUT[/"ENTER · or · ABSTAIN"/]:::out
+  CH[("Mantle<br/>hash + credentials")]:::chain
+  SB[("Supabase<br/>state + ledger")]:::store
+  SRC --> DESKS --> DEB --> PM --> OUT
   PM --> CH
   PM --> SB
   classDef src fill:#161614,stroke:#8b8b80,color:#f2efe6;
