@@ -102,8 +102,10 @@ ABSTAIN**, never up to a trade.
 ## The trading floor
 
 - **Campaign** (`campaign.py · step`) — a continuous **paper floor** at live prices, driven by the same
-  desk votes, with ATR stops, a regime veto, and an asset-performance fade. It runs even when the org
-  abstains, so there's always a live, honest track record. See [Architecture](/docs/architecture#the-continuous-trading-floor).
+  desk votes. Every setup must clear an ordered **[entry-quality pipeline](/docs/architecture#the-entry-quality-pipeline)**
+  — macro de-risk, mid-range chop, clear-trend, **TV 1h-vs-1D alignment**, **smart-money whale veto**, and
+  **over-extension** — then it's sized on a warm/cold ladder with per-asset calibrated stops. It runs even
+  when the org abstains, so there's always a live, honest track record (metrics at `/performance`).
 - **Exploration** (`exploration.py`) — when the org **ABSTAINs**, a small paper-hunt **budget** opens
   exploratory positions on flow consensus, resolves them at 24h, and feeds the outcome to the learning
   loop. Abstaining doesn't mean idle — it means *hunting carefully*.

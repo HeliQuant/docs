@@ -12,8 +12,10 @@ The firm runs as an always-on FastAPI service. These read endpoints power the li
 | Endpoint | Returns |
 |---|---|
 | `GET /health` | service heartbeat |
-| `GET /campaign` | the live trading floor — opened/closed/win%/net, open positions (with desk votes), recent closes, `last_scan`, `learned` (cond_record), cooldowns |
+| `GET /campaign` | the live trading floor — opened/closed/win%/net, open positions (with desk votes), recent closes, `last_scan`, `learned` (cond_record), `entry_gates` (the ordered entry-quality pipeline), `shadow_learning` (each gate's scored abstains) |
 | `GET /trades` | full trade ledger — every resolved trade (entry/exit/PnL/exit-reason/regime/`anchor_tx`) |
+| `GET /performance` | rigorous analytics on the real ledger — Sharpe/Sortino/Calmar/max-drawdown/profit-factor + equity curve. Annualised figures are **withheld** until the sample earns them (≥30d & ≥30 trades) — no fantasy CAGR off a short window |
+| `GET /sentiment` | free market context — crypto Fear & Greed (alternative.me) + BTC network backdrop (blockchain.com). Context, not edge |
 | `GET /agents` | the ERC-8004 roster — firm + 9 desks, tokenId, kind, ML flag, on-chain reputation + sealed-output count, reliability weight |
 | `GET /onchain` | the firm wallet's anchor transactions (Etherscan v2, Mantle Sepolia). `?wallet=0x..` to trace any address |
 | `GET /desks` | desk reliability weights (`0.6–1.4`, samples, align-rate) |
