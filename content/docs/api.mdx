@@ -7,20 +7,41 @@ The firm runs as an always-on FastAPI service. These read endpoints power the li
 
 > Base URL (live instance): `https://agents-production-5a3d.up.railway.app`
 
-## Endpoints
+## Live read endpoints
+
+Every endpoint below is defined in `app.py` (the always-on Railway service). All are public, read-only
+`GET`s (a couple also accept `HEAD`) with no auth.
 
 | Endpoint | Returns |
 |---|---|
-| `GET /health` | service heartbeat |
-| `GET /campaign` | the live trading floor — opened/closed/win%/net, open positions (with desk votes), recent closes, `last_scan`, `learned` (cond_record), `entry_gates` (the ordered entry-quality pipeline), `shadow_learning` (each gate's scored abstains) |
-| `GET /trades` | full trade ledger — every resolved trade (entry/exit/PnL/exit-reason/regime/`anchor_tx`) |
-| `GET /performance` | rigorous analytics on the real ledger — Sharpe/Sortino/Calmar/max-drawdown/profit-factor + equity curve. Annualised figures are **withheld** until the sample earns them (≥30d & ≥30 trades) — no fantasy CAGR off a short window |
+| `GET /health` | service heartbeat (plain `ok`) |
+| `GET /campaign` | the live trading floor — opened/closed/win%/net, open positions (with desk votes + the **PM sign-off** `pm`), recent closes, `last_scan`, `learned` (cond_record), `entry_gates` (the ordered entry-quality pipeline), `exits_by_reason` (TP/SL/TIME/TRAIL/STALL/NEARTP), `shadow_learning` |
+| `GET /trades` | full trade ledger — every resolved trade (entry/exit/PnL/exit-reason/regime/`anchor_tx`/venue). `?limit=` |
+| `GET /performance` | rigorous analytics on the real ledger — Sharpe/Sortino/Calmar/max-drawdown/profit-factor. Annualised figures are **withheld** until the sample earns them (≥30d & ≥30 trades) — no fantasy CAGR off a short window |
+| `GET /carry` | delta-neutral funding-carry per symbol (HYPE/SUI/MNT/BTC/ETH) + `best_harvestable` — the one validated positive edge family. Fed by the local engine (`scripts/88`) since Bybit is geo-blocked from Railway |
+| `GET /candles` | recent OHLC candles (Bybit linear perp, Amsterdam region). `?asset=BTC&interval=60&limit=120` — feeds the live-floor candlestick |
 | `GET /sentiment` | free market context — crypto Fear & Greed (alternative.me) + BTC network backdrop (blockchain.com). Context, not edge |
 | `GET /agents` | the ERC-8004 roster — firm + 9 desks, tokenId, kind, ML flag, on-chain reputation + sealed-output count, reliability weight |
-| `GET /onchain` | the firm wallet's anchor transactions (Etherscan v2, Mantle Sepolia). `?wallet=0x..` to trace any address |
 | `GET /desks` | desk reliability weights (`0.6–1.4`, samples, align-rate) |
 | `GET /edges` | the edge registry — `validated` (gates aggression) + `candidate` (on probation) |
-| `GET /run-cycle` | external trigger (uptime pinger) — runs one org cycle |
+| `GET /onchain` | the firm wallet's anchor transactions (Etherscan v2, Mantle Sepolia). `?wallet=0x..` to trace any address |
+| `GET /status` | loop status — cycles, last-cycle UTC, last error, assets, interval, `validated_edges` |
+| `GET /decisions` | recent LLM-org decisions (rolling buffer of the last ~50: asset/decision/direction/reason) |
+| `GET /logs` | raw service logs, secret-redacted (`?n=400`) |
+| `GET /probe` | which exchange/data hosts are reachable from Railway's IP (answers "can the firm fetch Bybit here?") |
+| `GET /run-cycle` | external trigger (uptime pinger, `GET`/`HEAD`) — advances the floor + runs one org cycle when due |
+
+### Ops / write endpoints (token-gated)
+
+These mutate state and require `?token=<INGEST_TOKEN>` (or a Bearer token for `/ingest`). Used for
+operations, not by the public dApp.
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /ingest` | connector: the local (Bybit-reachable) engine POSTs fresh positioning CSVs / carry so the cloud self-learns. `Authorization: Bearer INGEST_TOKEN` |
+| `GET\|POST /campaign/rebaseline` | reset the floor to a clean slate after a config change (once, never to shop for a good run) |
+| `GET\|POST /campaign/unstick` | clear leftover cooldowns / condition-bans so every asset re-evaluates next step |
+| `GET\|POST /campaign/test-open` | force-open one paper position to verify the live mechanics. `?asset=SUI&side=long` |
 
 ## Notes
 

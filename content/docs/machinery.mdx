@@ -1,42 +1,89 @@
 ---
 title: The Firm Machinery
-description: Beyond the desks — the steward, researchers, PM, the trading floor, sizing, and the learning loop.
+description: Beyond the desks — the steward, researchers, the PM, the LLM-gated trading floor, sizing, and the learning loop.
 ---
 
 The [nine desks](/docs/desks) only *produce reads*. Turning those reads into a disciplined, recorded,
 self-improving decision is the job of a whole **machinery of non-desk roles** — the parts of HeliQuant
-that act like the rest of a real trading firm: a steward who sets the agenda, researchers who argue, a PM
-who decides, a floor that trades, a risk officer who sizes, and a back office that records and learns.
+that act like the rest of a real trading firm: a steward who keeps the data healthy, researchers who
+argue, a PM who decides, a floor that trades, a risk officer who sizes, and a back office that records
+and learns.
+
+## The merge — the floor proposes, the LLM PM disposes
+
+HeliQuant has two engines: the slow **LLM org** (the full desks then debate then PM cycle, analyse-only)
+and the fast **no-LLM floor** (`campaign.py`, a continuous paper trader). They used to be *independent* —
+the floor traded purely on its own quantitative gates while the LLM only analysed.
+
+As of the **PM sign-off merge** (`firm/pm_signoff.py` + the gate in `campaign.py`, search
+`PM SIGN-OFF (THE MERGE)`, line 917) they are **coupled at the decision**: the floor still *proposes* a
+trade from its quantitative gates, but the **LLM Portfolio Manager now signs off — APPROVE or VETO — on
+every candidate** as the **final gate** before a position opens. It is fed the **live floor signals**
+(trend, stretch, TV 1h-vs-1D, range-position, whale stance, size, SL/TP) — *fresh*, not the org's stale
+feature CSVs — and it is **one** LLM call (provider Groq, rotating model pool), not the full org cycle.
+
+Crucially it **fails open** (approve) on any 429 / outage (`pm_signoff.py:47`) — the algorithmic gates
+already vetted the setup, so an LLM hiccup never freezes the floor. The verdict is recorded on the
+position (`p["pm"]`, `campaign.py:942`) and surfaced on `/campaign`. Toggle with `PM_SIGNOFF`
+(default on, `pm_signoff.py:28`).
+
+<Mermaid
+  caption="The merge — the floor proposes from its gates, then the LLM PM signs off (fails open on outage)"
+  chart={`
+flowchart LR
+  G[Floor entry-quality gates clear]:::g --> CAND[/candidate trade · direction + SL/TP/]:::o
+  CAND --> LIVE[build LIVE signals<br/>trend · stretch · TV 1h-vs-1D · range · whale · size]:::n
+  LIVE --> PM[["LLM PM sign-off — one Groq call<br/>APPROVE or VETO"]]:::role
+  PM -->|approve| OPEN[open position · record p.pm]:::floor
+  PM -->|veto| SKIP[skip + log a shadow]:::x
+  PM -.->|429 / outage| FO[fail OPEN = approve<br/>algo gates already vetted it]:::role
+  FO --> OPEN
+  classDef g fill:#1e1e1b,stroke:#8b8b80,color:#f2efe6;
+  classDef o fill:#161614,stroke:#8b8b80,color:#f2efe6;
+  classDef n fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
+  classDef role fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
+  classDef floor fill:#161614,stroke:#c9f24b,color:#f2efe6;
+  classDef x fill:#161614,stroke:#ff5a1f,color:#ff5a1f;
+`}
+/>
+
+> **The floor proposes; the LLM disposes.** This is what makes the LLM genuinely *drive* trades — not
+> just narrate them. It does **not** manufacture a profit edge: the directional book is still
+> ~breakeven (no validated edge). The one validated positive edge remains delta-neutral funding-carry
+> (HYPE **+5.8%/yr** walk-forward, `scripts/79`).
 
 ## The full machinery
 
 <Mermaid
-  caption="Everything around the desks — orchestration, decision, floor, recording, and the learning feedback"
+  caption="Everything around the desks — orchestration, decision, the LLM-gated floor, recording, and the learning feedback"
   chart={`
 flowchart TB
-  ST[["STEWARD — reads watchlist health, picks which assets to analyze"]]:::role
-  ST --> P1[PHASE 1 · 9 desks run real tools]:::desk
+  ST[["STEWARD — keeps the whale watchlist healthy<br/>MIGRATE or KEEP"]]:::role
+  ST --> P1[PHASE 1 · 7 LLM desks run real tools]:::desk
   P1 --> P15{{"PHASE 1.5 · Bull vs Bear — 2-round debate"}}:::role
-  P15 --> PM[["PHASE 3 · Portfolio Manager<br/>weighted desks + R:R ≥ 2:1"]]:::role
+  P15 --> PM[["PHASE 2 · Portfolio Manager<br/>weighted desks + R:R gate"]]:::role
   PM --> FIN{finalize_decision<br/>valid ?}:::g
-  FIN -->|invalid| RAB[repair → ABSTAIN]:::o
+  FIN -->|invalid| RAB[repair to ABSTAIN]:::o
   FIN -->|valid| DEC[/"ENTER | ABSTAIN"/]:::o
-  DEC --> TT[trade_ticket<br/>fractional-Kelly sizing]:::role
+  DEC --> TT[trade_ticket<br/>size_position fractional-Kelly]:::role
   DEC --> REC[on-chain recorders<br/>seal desks + decision]:::infra
   DEC --> SB[(Supabase + memory_store)]:::infra
   DEC -. on ABSTAIN .-> EXP[Exploration<br/>paper-hunt budget]:::floor
-  PM --> FLOOR[Campaign floor<br/>continuous paper trades]:::floor
-  REC --> LEARN[[Learning loop<br/>desk_performance · edge_lab · cond_record · edge_evolver]]:::learn
-  FLOOR --> LEARN
+  FLOOR[Campaign floor<br/>continuous paper trades]:::floor --> PROP{floor proposes<br/>a candidate}:::g
+  PROP --> SIGN[["PM SIGN-OFF — one LLM call<br/>approve or veto · fails open"]]:::role
+  SIGN -->|approve| OPEN[open position]:::floor
+  SIGN -->|veto| SKIP[skip + shadow-score]:::o
+  REC --> LEARN[[Learning loop<br/>desk_performance · edge_lab · cond_record]]:::learn
+  OPEN --> LEARN
   EXP --> LEARN
-  LEARN -. updated weights & edges .-> P1
+  LEARN -. updated weights and edges .-> P1
   classDef role fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
   classDef desk fill:#161614,stroke:#c9f24b,color:#f2efe6;
   classDef g fill:#1e1e1b,stroke:#c9f24b,color:#f2efe6;
   classDef o fill:#161614,stroke:#8b8b80,color:#f2efe6;
   classDef infra fill:#161614,stroke:#8b8b80,color:#f2efe6;
   classDef floor fill:#161614,stroke:#c9f24b,color:#f2efe6;
-  classDef learn fill:#1e1e1b,stroke:#c9f24b,color:#f2efe6;
+  classDef learn fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
 `}
 />
 
@@ -48,7 +95,7 @@ flowchart TB
 classDiagram
   class Steward {
     +readWatchlistHealth()
-    +pickAssets() assets
+    +decideMigrateOrKeep() action
   }
   class Desk {
     +tool() realData
@@ -61,89 +108,119 @@ classDiagram
   }
   class PortfolioManager {
     +weighByReliability()
-    +rrGate 2to1
+    +rrGate
     +decide() ENTER_or_ABSTAIN
   }
   class TradeTicket {
-    +fractionalKelly()
+    +size_position()
     +caps 3pct_risk_5x_lev
+  }
+  class CampaignFloor {
+    +propose() candidate
+    +pmSignoff() approve_or_veto
   }
   class LearningLoop {
     +deskPerformance
     +edgeLab
     +condRecord
-    +edgeEvolver
   }
-  Steward --> Desk : selects assets for
+  Steward --> Desk : keeps data healthy
   Desk --> PortfolioManager : weighted stances
   Researcher --> PortfolioManager : debate
   PortfolioManager --> TradeTicket : sizes ENTER
+  PortfolioManager --> CampaignFloor : signs off each candidate
+  CampaignFloor --> LearningLoop : closed trades
   PortfolioManager --> LearningLoop : outcomes
   LearningLoop --> Desk : updates weights
 `}
 />
 
-### Steward — sets the agenda
-`organization.py · STEWARD_SYS`. Before any desk runs, the steward reads the **watchlist health report**
-(which assets have fresh data, which whales still qualify) and decides **what's worth analyzing this
-cycle**. It keeps the firm from burning a cycle on stale or junk assets.
+### Steward — keeps the watchlist healthy
+`organization.py · run_operations / STEWARD_SYS` (line 353, 418). The steward reads a deterministic
+**whale-watchlist health report** (how many wallets still qualify, data age, losers) and decides one
+thing: **MIGRATE** (re-scan fresh Mantle DEX activity via GeckoTerminal and replace under-performers) or
+**KEEP**. It does **not** pick which assets to analyze — the cycle's asset is chosen in `app.py` by simple
+rotation (`ASSETS[cycles % len(ASSETS)]`, `app.py:132`). The steward's job is purely data hygiene: never
+mirror stale or loss-making wallets.
+
+- **In:** `wm.evaluate(wm.load())` health report (deterministic).
+- **Process:** one LLM call judges the numbers (`STEWARD_SYS`); on `migrate`, `wm.migrate()` re-scans
+  GeckoTerminal. Fails to a deterministic rule if the LLM is unavailable.
+- **Out:** `{action, confidence, reason}` + before/after health.
 
 ### Researchers — the bull and the bear
-`organization.py · run_debate`. Two researchers argue over the desk outputs in **two rounds** (opening +
-rebuttal) on a deep model. This surfaces dissent *before* the PM sees it, so a one-sided desk consensus
-gets stress-tested instead of rubber-stamped.
+`organization.py · run_debate` (line 494). Two researchers argue over the desk outputs in **two rounds**
+(opening + rebuttal) on a deep model (Groq `gpt-oss-120b`, Kimi K2.6 as Plan B). This surfaces dissent
+*before* the PM sees it, so a one-sided desk consensus gets stress-tested instead of rubber-stamped.
+
+- **In:** desk tool outputs + the LLM desk stances.
+- **Process:** `BULL_SYS` / `BEAR_SYS` open, then `*_REBUT_SYS` rebut (4 LLM calls total).
+- **Out:** `{bull, bear, bull_rebuttal, bear_rebuttal}`.
 
 ### Portfolio Manager — the decision
-`organization.py · run_pm / PM_SYS`. The PM weighs the desks by **learned reliability**, reads the debate,
-and applies the hard **R:R ≥ 2:1** gate to output `ENTER` (only on a validated edge) or `ABSTAIN`.
-`finalize_decision` then validates the output — anything malformed or unjustified is **repaired down to
-ABSTAIN**, never up to a trade.
+`organization.py · run_pm / PM_SYS` (line 373, 547). The PM weighs the desks **ranked by learned
+reliability** (`_ranked_desk_view`), reads the debate, and outputs `ENTER` (only on the one validated-edge
+exception) or `ABSTAIN`. `finalize_decision` (line 672) then attaches a **gated trade ticket**; if the
+ticket can't clear the R:R gate it **re-prompts the PM up to twice**, then overrides to a disciplined
+**ABSTAIN** — never up to a trade.
+
+- **In:** ranked desk stances + debate + regime status + advisory briefs (memory, carry, flow, whale,
+  Mantle fundamentals).
+- **Process:** one deep LLM call; then `build_trade_ticket` gates the result (repair loop, max 2).
+- **Out:** `{decision, direction, confidence, reasoning, desk_consensus, trade_ticket, ticket_note}`.
 
 ## The trading floor
 
-- **Campaign** (`campaign.py · step`) — a continuous **paper floor** at live prices, driven by the same
-  desk votes. Every setup must clear an ordered **[entry-quality pipeline](/docs/architecture#the-entry-quality-pipeline)**
-  — macro de-risk, mid-range chop, clear-trend, **TV 1h-vs-1D alignment**, **smart-money whale veto**, and
-  **over-extension** — then it's sized on a warm/cold ladder with per-asset calibrated stops. It runs even
-  when the org abstains, so there's always a live, honest track record (metrics at `/performance`).
+- **Campaign** (`campaign.py · step`, line 570) — a continuous **paper floor** at live prices. It computes
+  its **own deterministic desk votes** (`desk_votes`, line 310 — flow-intel + z-score positioning extremes
+  + the Hyperliquid whale read; **no LLM**), then every candidate must clear an ordered
+  **[entry-quality pipeline](/docs/architecture#the-entry-quality-pipeline)** — macro de-risk, deep-cold
+  bench, cold-cadence, mid-range chop, clear-trend, don't-fight-trend flip, **TV 1h-vs-1D**, **smart-money
+  whale veto**, **over-extension**, and finally the **LLM PM sign-off** (the merge, above). Approved trades
+  are sized on a **warm/cold ladder** with per-asset calibrated stops. It runs even when the org abstains,
+  so there's always a live, honest track record (metrics at `/performance`).
 - **Exploration** (`exploration.py`) — when the org **ABSTAINs**, a small paper-hunt **budget** opens
   exploratory positions on flow consensus, resolves them at 24h, and feeds the outcome to the learning
   loop. Abstaining doesn't mean idle — it means *hunting carefully*.
 
 ## Risk sizing — the trade ticket
-`trade_ticket.py · size_position`. Every ENTER is sized by **fractional Kelly** (`kelly_fraction_star`),
-then clamped by hard caps — **≤ 3% risk, ≤ 5× leverage**, with a 20% drawdown breaker — and split into
-**SAFE vs AGGRESSIVE** profiles. AGGRESSIVE is unlocked *only* when an OOS-validated edge's live signal
-fires.
+`trade_ticket.py · size_position` (line 125). Every ENTER is sized by `size_position`, whose
+`notional = risk$ × (entry / stop-distance)` mirrors the backtested engine. It picks **SAFE** (the bounded
+conviction band, 0.5–1.5% risk) or **AGGRESSIVE** (fractional Kelly — the `kelly_fraction_star` *output
+field*) and clamps with hard caps: **≤ 3% risk, ≤ 5× leverage**, plus a **20% drawdown breaker** that
+forces SAFE. AGGRESSIVE is unlocked *only* when an OOS-validated edge's live signal fires with ≥ 20
+samples; crowding only ever sizes **down**.
 
 ## The learning loop
-`desk_performance` (reliability weights) · `edge_lab` (validates candidate edges OOS) · `cond_record`
-(regime-aware tactical memory) · `edge_evolver` (searches variants when an edge is demoted). Together they
-make the firm **self-improving** — desks that call it right gain weight, edges that decay lose validation.
-This is its own subsystem; see [Self-learning](/docs/self-learning) for the full treatment.
+`desk_performance` (reliability weights, `0.6–1.4`, ≥ 15 samples) · `edge_lab` (validates candidate edges
+OOS with walk-forward + outlier-robustness + Benjamini–Hochberg FDR) · `cond_record` (regime-aware
+tactical memory on the floor) · `edge_evolver` (offline search for variants when an edge decays). Together
+they make the firm **self-improving** — desks that call it right gain weight, edges that decay lose
+validation. This is its own subsystem; see [Self-learning](/docs/self-learning) for the full treatment.
 
 ## The back office — recording & persistence
 - **On-chain recorders** (`onchain_recorder`, `agent_onchain`) — seal each desk's output and the decision
   hash on Mantle every cycle (see [On-chain](/docs/on-chain)).
-- **State & memory** (`state_store`, `memory_store`) — persist the firm's state, decisions, and ledger to
-  **Supabase** so nothing is lost across redeploys.
-- **Strategy lifecycle** (`strategy_lifecycle`) — promotes/demotes whole strategies by status as their
-  evidence strengthens or decays.
+- **State & memory** (`state_store`, `memory_store`) — persist the firm's state, decisions, campaign book,
+  and ledger to **Supabase** (`hq_state` / `decisions_hq`) so nothing is lost across Railway redeploys.
+- **Strategy lifecycle** (`strategy_lifecycle`) — *offline research* tooling that promotes/demotes whole
+  strategies by status as their evidence strengthens or decays. It is imported by offline scripts, **not**
+  by the live `organization.py` loop — so it documents the lifecycle, it doesn't run inside a cycle.
 
 ## A decision's journey
 
 <Mermaid
-  caption="From a steward's agenda to an immutable on-chain record — and back into learning"
+  caption="From a steward's data check to an immutable on-chain record — and back into learning"
   chart={`
 journey
-  title A decision's journey — data to immutable record
+  title A decision's journey from data to immutable record
   section Gather
-    Steward picks assets: 4: Steward
+    Steward keeps watchlist healthy: 4: Steward
     Desks run real tools: 5: Desks
   section Reason
     LLMs interpret outputs: 4: Desks
     Bull vs Bear debate: 4: Researchers
-    PM weighs + RR gate: 5: PM
+    PM weighs plus RR gate: 5: PM
   section Commit
     finalize or ABSTAIN: 4: PM
     Seal on Mantle: 5: Chain

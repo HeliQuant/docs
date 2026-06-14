@@ -1,10 +1,13 @@
 ---
 title: Architecture
-description: How the firm runs — 9 desks debate, the PM decides, every cycle is recorded.
+description: How the firm runs — 7 LLM desks debate, the PM decides, and the LLM signs off on every floor trade.
 ---
 
 HeliQuant is structured like a trading firm: specialist **desks** produce domain reads, **researchers**
-argue bull-vs-bear, and a **Portfolio Manager** synthesizes one disciplined decision per cycle.
+argue bull-vs-bear, and a **Portfolio Manager** synthesizes one disciplined decision per cycle — and, via
+the [PM sign-off merge](/docs/machinery#the-merge-the-floor-proposes-the-llm-pm-disposes), that same PM now
+**signs off on every trade the continuous floor proposes**. Seven desks call an LLM; two more (flow-intel
+and whale) fold in as pre-computed stances.
 
 ## How a decision flows
 
@@ -16,8 +19,8 @@ the debate stress-tests it, and the PM turns the weighted picture into a single 
   caption="Activity flow — one cycle from gather to a recorded ENTER / ABSTAIN"
   chart={`
 flowchart LR
-  S((start)):::se --> A[Gather · 6 live sources]:::act
-  A --> B[Analyze · 9 desks]:::act
+  S((start)):::se --> A[Gather · live sources]:::act
+  A --> B[Analyze · 7 LLM desks]:::act
   B --> C[Debate · bull vs bear]:::act
   C --> D[PM synthesize · weight by reliability]:::act
   D --> Q{edge AND<br/>R:R ≥ 2:1 ?}:::dec
@@ -72,12 +75,13 @@ sequenceDiagram
   participant SB as Supabase
   U->>APP: GET /run-cycle (keep-alive + driver)
   APP->>APP: gap ≥ MIN_CYCLE_GAP ? acquire lock
-  loop each of the 9 desks
+  loop each of the 7 LLM desks
     APP->>D: run real tool (Bybit/Allora/HL/DeFiLlama…)
-    D-->>APP: stance + confidence
+    D-->>APP: real data
     APP->>L: interpret output (model rotates per desk)
     L-->>APP: JSON stance
   end
+  Note over D,L: flow-intel + whale fold in as pre-computed stances (no LLM call)
   APP->>R: desk outputs → debate (2 rounds)
   R-->>APP: bull case / bear risks (rebutted)
   APP->>PM: desks ranked by reliability + debate
@@ -100,13 +104,16 @@ sequenceDiagram
 
 ## The continuous trading floor
 
-Alongside the LLM org, a **campaign** runs a continuous paper floor at live prices, driven by the same
-desk votes. It only opens a setup that clears an [**entry-quality pipeline**](#the-entry-quality-pipeline)
-(below), sizes each position on a **warm/cold ladder** (proven winners boosted up to 1.6×, proven losers
-half-size + throttled), and times it on a **dynamic horizon** (3h fade / 4h trend). Stops are **calibrated
-per asset** from realized excursions (MFE/MAE — the fixed 2.5× TP was reached only 0–21% of the time), trend
-trades **trail** to let a run go, and it learns from every close **and every abstention**. Every position is
-a little state machine:
+Alongside the LLM org, a **campaign** runs a continuous paper floor at live prices. It computes its **own
+deterministic desk votes** — flow-intel signals, z-score positioning extremes, and the Hyperliquid whale
+read, with **no LLM call** (`campaign.py · desk_votes`) — *and then*, as the final gate, asks the **LLM PM
+to sign off** on the candidate (the [merge](/docs/machinery#the-merge-the-floor-proposes-the-llm-pm-disposes)).
+Before that sign-off, a setup must clear an ordered [**entry-quality pipeline**](#the-entry-quality-pipeline)
+(below). Approved positions are sized on a **warm/cold ladder** (proven winners boosted up to 1.6×, proven
+losers half-size + throttled) and timed on a **dynamic horizon** (3h fade / 4h trend / 24h validated edge).
+Stops are **calibrated per asset** from realized excursions (MFE/MAE — the fixed 2.5× TP was reached only
+0–21% of the time), trend trades **trail** to let a run go, and it learns from every close **and every
+abstention**. Every position is a little state machine:
 
 <Mermaid
   caption="Campaign position lifecycle — open, manage, exit, learn"
@@ -115,14 +122,18 @@ stateDiagram-v2
   [*] --> Scanning
   Scanning --> Blocked: macro / cold bench / mid-range / counter-daily / whale-veto / over-extended
   Blocked --> Scanning: gate clears (TTL or probe trade)
-  Scanning --> Open: clears the entry-quality pipeline (else abstain)
+  Scanning --> PMSignoff: clears the entry-quality pipeline
+  PMSignoff --> Scanning: PM VETO (logs a shadow)
+  PMSignoff --> Open: PM APPROVE (or fail-open on LLM outage)
   Open --> TP: calibrated TP (reachable, per-asset)
   Open --> SL: calibrated SL (per-asset)
+  Open --> NEARTP: near-TP lock, fee-guarded (clears round-trip cost)
   Open --> TRAIL: trend trade — ratchet, exit on reversal
-  Open --> STALL: ≥2h & |move| < 0.3%
-  Open --> TIME: dynamic cap (3h fade / 4h trend)
+  Open --> STALL: not edge, 2h elapsed and gross < 0.3%
+  Open --> TIME: dynamic cap (3h fade / 4h trend / 24h edge)
   TP --> Learn
   SL --> Learn
+  NEARTP --> Learn
   TRAIL --> Learn
   STALL --> Learn
   TIME --> Learn
@@ -155,7 +166,9 @@ flowchart TB
   G6 -->|high-conviction against| X
   G6 -->|aligned or neutral| G7{already over-extended}:::n
   G7 -->|over 2.5 ATR past mean| X
-  G7 -->|early or pullback| EN[ENTER<br/>calibrated SL/TP · dynamic horizon]:::en
+  G7 -->|early or pullback| G8{LLM PM sign-off}:::n
+  G8 -->|VETO| X
+  G8 -->|APPROVE or fail-open| EN[ENTER<br/>calibrated SL/TP · dynamic horizon]:::en
   classDef c fill:#161614,stroke:#c9f24b,color:#f2efe6;
   classDef g fill:#1e1e1b,stroke:#8b8b80,color:#f2efe6;
   classDef n fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
@@ -176,16 +189,23 @@ The three green gates were added **2026-06-14** to stop the floor buying exhaust
 - **Over-extension** — refuses a fresh entry once price has already run **>2.5 ATR past its 1h mean** (or is
   decelerating). Enter a trend *early / on a pullback*, never the stretched tail.
 
+The **final** gate is the **LLM PM sign-off** (the
+[merge](/docs/machinery#the-merge-the-floor-proposes-the-llm-pm-disposes)): once a candidate clears every
+algorithmic gate, the floor hands the **live signals** to the LLM Portfolio Manager for a one-call
+APPROVE / VETO. It **fails open** on an LLM outage so the floor never freezes — the algorithmic gates have
+already vetted the setup.
+
 A symmetric **fee-breakeven guard** sits on the exit side: a near-TP lock only banks a win that clears the
-round-trip cost, so a sub-fee "win" is never booked. None of these is an **edge** — they are **discipline**.
-The floor's honest expectation on a no-edge directional book is still ~breakeven; the only validated positive
-edge remains delta-neutral funding-carry. Rigorous, un-flattering metrics on the real ledger (Sharpe,
-Sortino, max-drawdown, with annualised figures *withheld* until the sample earns them) are served at
-`/performance` and shown on the **Dyno** page.
+round-trip cost, so a sub-fee "win" (`NEARTP`) is never booked. None of these is an **edge** — they are
+**discipline**. The floor's honest expectation on a no-edge directional book is still ~breakeven; the only
+validated positive edge remains delta-neutral funding-carry (HYPE **+5.8%/yr** walk-forward). Rigorous,
+un-flattering metrics on the real ledger (Sharpe, Sortino, max-drawdown, with annualised figures *withheld*
+until the sample earns them) are served at `/performance` and shown on the **Dyno** page.
 
 The floor is **self-driving**: any read of `/campaign` or `/trades` (and every keep-alive ping of
-`/run-cycle`) opportunistically advances a step in the background (lock-guarded, ≤1 step / 8 min), so it
-keeps trading on real traffic even if the external pinger lapses.
+`/run-cycle`) opportunistically advances a step in the background — lock-guarded, **opening new positions
+at most once every `CAMPAIGN_STEP_MIN` = 4 min** while **resolving matured positions every ~60 s** so exits
+stay snappy — and it keeps trading on real traffic even if the external pinger lapses.
 
 ## Stack
 

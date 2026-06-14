@@ -1,0 +1,223 @@
+---
+title: Components — In / Process / Out
+description: Every moving part of the firm as a clear input → process → output triplet, with the exact code location.
+---
+
+This page is the **engineering reference**: every component of HeliQuant — the LLM org and the LLM-gated
+floor — described as a clean **In → Process → Out** triplet with its `file:line`. It's deliberately terse;
+the narrative lives in [Architecture](/docs/architecture), [The Desks](/docs/desks), and
+[The Firm Machinery](/docs/machinery).
+
+> **One honest frame for the whole page.** The [PM sign-off merge](/docs/machinery#the-merge-the-floor-proposes-the-llm-pm-disposes)
+> makes the LLM genuinely drive trades — but it creates **no profit edge**. The directional book is
+> ~breakeven (no validated edge); the one validated positive edge is delta-neutral funding-carry
+> (HYPE **+5.8%/yr** walk-forward, `scripts/79`).
+
+## How the two engines connect
+
+<Mermaid
+  caption="The org analyses and decides; the floor proposes and the LLM PM signs off — sharing tools, learning, and the chain"
+  chart={`
+flowchart TB
+  subgraph ORG["LLM ORG · organization.py"]
+    direction TB
+    STW[Steward]:::r --> DSK[7 LLM desks]:::r --> DBT[Bull/Bear debate]:::r --> PM1[PM run_pm]:::r --> FIN[finalize_decision + trade_ticket]:::r
+  end
+  subgraph FLR["NO-LLM FLOOR · campaign.py"]
+    direction TB
+    SIG[signals + live tools]:::f --> GATE[entry-quality pipeline]:::f --> PROP[/candidate/]:::o
+  end
+  PROP --> PMS[["PM SIGN-OFF · pm_signoff.py<br/>one LLM call · fails open"]]:::r
+  PMS -->|approve| EX[execute paper / testnet]:::f
+  TOOLS[(deterministic tools<br/>regime · onchain · smartmoney · macro · whale · DeFiLlama)]:::t --> DSK
+  TOOLS --> SIG
+  FIN --> CH[(chain + memory + state)]:::i
+  EX --> CH
+  CH --> LRN[[learning loop]]:::l
+  LRN -.-> DSK
+  LRN -.-> SIG
+  classDef r fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
+  classDef f fill:#161614,stroke:#c9f24b,color:#f2efe6;
+  classDef o fill:#161614,stroke:#8b8b80,color:#f2efe6;
+  classDef t fill:#161614,stroke:#8b8b80,color:#8b8b80;
+  classDef i fill:#161614,stroke:#8b8b80,color:#f2efe6;
+  classDef l fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
+`}
+/>
+
+---
+
+# The LLM Org (`organization.py`)
+
+## Steward
+`run_operations` · `organization.py:418` · `STEWARD_SYS:353`
+- **In:** deterministic whale-watchlist health report (`wm.evaluate(wm.load())`).
+- **Process:** one LLM call judges the numbers → `MIGRATE` or `KEEP`; on migrate, `wm.migrate()` re-scans
+  GeckoTerminal. Falls back to a deterministic rule if the LLM is down. *(Decides watchlist health only —
+  the cycle's asset is chosen by rotation in `app.py:132`, not here.)*
+- **Out:** `{action, confidence, reason}` + before/after health + migration result.
+
+## The 7 LLM desks
+`build_desks` · `organization.py:454` — each desk = (a real tool output) + (one LLM interpretation via
+`run_analysts:470`, `ANALYST_SYS:363`). Different models per desk, so they don't groupthink.
+
+| Desk | Tool (In→Process→Out) | Code |
+|---|---|---|
+| **Regime / Technical** | features CSV → rule-based `detect_current` regime + ADX + dynamic R:R → `{current_regime, adx, recommended_dynamic_rr, …}`. XGBoost is the *backtest* engine, not the live call. | `tool_regime:93` |
+| **Macro (Allora)** | Allora SDK fetch (BTC topic 14, ETH topic 9) → plausibility filter → `{btc, eth, predicted_8h_usd, direction}`; BTC-regime fallback if Allora is empty | `tool_macro:131` |
+| **On-chain / Risk** | GoPlus (WMNT security) + whale watchlist health + flow summary → divergence-vs-price → `{token_security, whale_health, whale_flow, whale_divergence_vs_price}` | `tool_onchain_risk:166` |
+| **Research** | free public APIs (Fear&Greed, CoinGecko global/trending/prices) → `{fear_greed_index, global_market, trending_coins, majors_24h_change_pct}` | `tool_research:202` |
+| **Smart-Money Flow** | Smart-Money engine (`scripts/51`) — CONTRACT mode (Mantle DEX flow + mETH staking) or POSITIONING mode (perp OI/funding/long-short) + Nansen macro netflow → `{flow_score_0_100, read, macro_smart_money_nansen}` | `tool_smartmoney:239` |
+| **Smart-Social** | Elfa trending + per-asset mentions/news → `{asset_in_top_trending, asset_attention_24h, top_narratives_24h}` | `tool_smartsocial:278` |
+| **OI-Contrarian** | `validated_edges.json` ∩ live OI-quintile signal → if edge_validated **and** actionable, a backtested reason to ENTER; else context-only | `tool_oi_contrarian:310` |
+
+Each desk's per-stance step:
+- **In:** the tool output JSON + the desk's domain string.
+- **Process:** one `ANALYST_SYS` LLM call — *interprets*, never invents numbers.
+- **Out:** `{stance, confidence, key_point}`.
+
+## Debate (Bull / Bear)
+`run_debate` · `organization.py:494` · `BULL_SYS / BEAR_SYS / *_REBUT_SYS:389-413`
+- **In:** all desk tool outputs + all desk stances.
+- **Process:** 2 rounds (opening + rebuttal), 4 deep-model LLM calls — surfaces dissent before the PM.
+- **Out:** `{bull, bear, bull_rebuttal, bear_rebuttal}`.
+
+## Portfolio Manager
+`run_pm` · `organization.py:547` · `PM_SYS:373`
+- **In:** desk stances **ranked by learned reliability** (`_ranked_desk_view:533`) + the debate + regime
+  status + advisory briefs (memory, carry, flow-intel, whale, Mantle fundamentals — all *additive*, never
+  altering the gates).
+- **Process:** one deep LLM call. Rule: a pure trend thesis → ABSTAIN; the one ENTER exception is a
+  validated, *actionable* OI-Contrarian edge; a hard rugpull veto forces ABSTAIN.
+- **Out:** `{decision, direction, confidence, reasoning, desk_consensus, self_management}`.
+
+## finalize_decision
+`organization.py:672`
+- **In:** the PM decision + desks + real structure (entry/ATR/swings via `_state:81`, `_swings:604`).
+- **Process:** on ENTER, builds a gated `trade_ticket`; if it fails the R:R gate, **re-prompts the PM up to
+  2×** (`MAX_TICKET_REPAIR`), then overrides to a disciplined **ABSTAIN**. Never repairs *up* to a trade.
+- **Out:** the decision with `trade_ticket` + `ticket_note` attached (or ABSTAIN).
+
+## trade_ticket
+`trade_ticket.py` — `build_trade_ticket:195` → `build_levels:77` + `size_position:125` + `validate_ticket:166`
+- **In:** direction + conviction (from the PM) + real ATR/swing structure + optional `edge` profile.
+- **Process:** price math for entry zone / structural stop / TP ladder / R:R; `size_position` picks
+  **SAFE** (conviction band 0.5–1.5%) or **AGGRESSIVE** (fractional Kelly — `kelly_fraction_star` is its
+  *output field*), clamped to **≤ 3% risk / ≤ 5× leverage** with a **20% drawdown breaker**; crowding sizes
+  down only. Then the Layer-3 gate validates R:R ≥ 2, consistent levels, caps, allowlist.
+- **Out:** a `{valid, problems, entry_range, stop_loss, take_profit[], mode, risk_pct, notional_usd,
+  kelly_fraction_star, …}` ticket.
+
+## Deterministic / real-source tools
+The numbers the desks interpret are computed here (no LLM):
+
+| Tool | In → Process → Out | Code |
+|---|---|---|
+| `tool_regime` | features CSV → `detect_current` rules + ADX → regime + dynamic R:R | `organization.py:93` |
+| `tool_onchain_risk` | GoPlus + whale watchlist → security + flow + divergence | `organization.py:166` |
+| `tool_smartmoney` | `scripts/51` engine (auto CONTRACT/POSITIONING) + Nansen → flow score + read | `organization.py:239` |
+| `tool_macro` (Allora) | `allora_client` BTC/ETH 8h prediction → direction + predicted price | `organization.py:131` |
+| `whale_manager` | watchlist scoring + `migrate()` re-scans GeckoTerminal | `whale_manager.py:89,152` |
+| **DeFiLlama** | keyless Mantle TVL/fees/staking → ecosystem risk-on/off brief | `defillama_client.py:17,62` |
+| **GoPlus** | token-security screen (honeypot/severity) for WMNT | via `sources/rugpull` in `tool_onchain_risk` |
+| **Elfa** | trending mindshare + per-asset social attention | `elfa_client.py:36,80` |
+| **Nansen** | funds' real ETH netflow (macro smart-money, credit-frugal) | `nansen_client.py:37` |
+
+## Non-desk roles
+| Role | In → Process → Out | Code |
+|---|---|---|
+| `desk_performance` | desk stance vs realized direction → reliability weight `0.6–1.4` (≥15 samples, else neutral) → advisory prior to the PM | `desk_performance.py:145,210,269` |
+| `edge_lab` | a hypothesis library × asset history → cost-aware OOS + 5-fold walk-forward + outlier-robust + BH-FDR → validated / candidate / rejected | `edge_lab.py:227` |
+| `exploration` | on ABSTAIN, flow-consensus reads → a paper trial → resolved at 24h → a learned lesson (never repeated) | `exploration.py:65,96` |
+| `macro_calendar` | clock → is now inside a FOMC/CPI window? → de-risk flag | `macro_calendar.py:23` |
+| `onchain_recorder` | a decision → canonical record + SHA-256 → a 0-value self-send tx on Mantle (gated by `--send`) | `onchain_recorder.py:64` |
+| `agent_onchain` | each desk's output + jobId → ERC-8004 `recordCredential` per desk on Mantle | `agent_onchain.py:32` |
+| `state_store` | key/value → Supabase `hq_state` (local-JSON fallback) → survives Railway redeploys | `state_store.py:47,69` |
+| `memory_store` | a decision + later its outcome → SQLite / Supabase `decisions_hq` → `recall()` past trades for the PM | `memory_store.py:101,147,278` |
+
+---
+
+# The Floor (now LLM-gated) (`campaign.py`)
+
+A continuous **paper** trader at live prices (real Bybit-testnet fills only when `CAMPAIGN_EXECUTE=1`).
+
+## Signals (the floor's own conviction — no LLM)
+`desk_votes` · `campaign.py:310` — sums a directional vote:
+- **flow-intel** stance (`flow_intel.synthesize:87`) + z-score positioning extremes (OI/funding/flow/momentum) from the fed CSV;
+- **Hyperliquid whale** read, **double-weighted** when high-conviction (`hl_whales.whale_read:83`);
+- **Mantle-TVL lean** for Mantle-eco assets (`_mantle_lean:360`, DeFiLlama), gated by price confluence.
+- **In:** fed positioning CSV (≤12h old) + live whale/TVL. **Out:** `(net_votes, reasons[])`.
+
+## Live tools (cheap, deterministic)
+| Tool | In → Process → Out | Code |
+|---|---|---|
+| `_trend` | 1h klines → price vs SMA24 + slope → `up`/`down`/`flat` (the responsive regime proxy) | `campaign.py:467` |
+| `_atr_pct` | 1h klines → ATR(14)/price → per-asset volatility for SL/TP sizing | `campaign.py:394` |
+| `_range_pos` | last 24×1h high/low → 0..1 position in range (mid-range = chop) | `campaign.py:553` |
+| `_extension` | 20-bar mean → signed ATRs stretched + decel flag (don't chase the tail) | `campaign.py:494` |
+| `tv_ta` | TradingView 1h vs 1D consensus → `abstain` / `fade` / ok | `tv_ta.py:60` |
+| `_whale_conviction` | HL whale stance + is-high-conviction → veto a trade whales oppose | `campaign.py:513` |
+
+## The entry-gate pipeline
+`step` · `campaign.py:570`. An ordered, **per-asset** stack (each is a plain skip — abstaining one asset
+never stalls the basket). The live list is on `/campaign` as `entry_gates`:
+
+1. macro event-risk de-risk (`macro_calendar`) · 2. deep-cold bench · 3. cold-cadence throttle ·
+4. mid-range chop · 5. **clear-trend required** (flat → abstain) · 6. don't-fight-trend flip (contrarian →
+trend-follow) · 7. **TV 1h-vs-1D** counter-daily · 8. **smart-money whale veto** · 9. **over-extension** ·
+10. fee-breakeven near-TP guard (exit-side) — **then the new final gate:**
+
+## PM sign-off (the merge — final gate)
+`pm_signoff.signoff` · `pm_signoff.py:33` · called at `campaign.py:917`
+- **In:** the floor's candidate (asset, direction, top reasons) + **live signals** `{trend_1h, stretch_atr,
+  tv_vs_1d, range_pos, whale, size_usd, sl_pct, tp_pct}` — fresh, not the org's CSVs.
+- **Process:** **one** Groq LLM call (`SIGNOFF_SYS`) → APPROVE / VETO. **Fails open** (approve) on any
+  error (`pm_signoff.py:47`) so a 429/outage never freezes the floor. Toggle `PM_SIGNOFF` (default on).
+- **Out:** `{approve, reason, model}` — recorded on the position as `p["pm"]` (`campaign.py:942`); a VETO
+  logs a shadow for later scoring.
+
+## Sizing
+Inline in `step` (`campaign.py:848-916`):
+- **In:** vote tier (`STRONG` ≥2 votes → `$100`, else `LEAN` → `$50`), heat, per-asset record.
+- **Process:** anti-martingale **heat** concurrency (`_heat_slots:535`); **warm/cold ladder**
+  (`_asset_perf:997` → cold = ½ size + 1-of-3 cadence; warm = ×1.3, strong = ×1.6, capped below the ×2
+  reserved for a validated edge); `cond_record` learned fade (½ on a proven-losing condition@regime).
+- **Out:** the dollar `size_usd` for the position.
+
+## Stops & exits
+- **Calibrated TP/SL** (`_tp_sl_mult:437`) — per-asset ATR multipliers measured from realized excursions
+  (MFE/MAE; the fixed 2.5× TP was reached only 0–21% of the time). Fallback 2.5×/1.8× ATR.
+- **Trailing** (`campaign.py:608`) — trend-follow/edge trades ratchet a chandelier stop toward price.
+- **near-TP fee-guard** (`NEARTP`, `campaign.py:629`) — locks an ≥80%-to-TP gain only if it clears the
+  round-trip cost (a sub-fee "win" is never booked).
+- **STALL** (`campaign.py:646`) — a non-edge trade not following through (gross < 0.3%) by 2h is cut.
+- **TIME** (`campaign.py:650`) — the **dynamic horizon** cap (`_dynamic_horizon:455`): 3h fade / 4h trend /
+  24h validated edge.
+- **In:** live mark + the position. **Out:** an exit reason `∈ {TP, SL, TRAIL, NEARTP, STALL, TIME}` + net
+  PnL (net of 20 bps round-trip).
+
+## Execution
+`_exec_open` · `campaign.py:232` (+ `_exec_perp_open:209`, `_exec_close:257`)
+- **In:** an approved position + `CAMPAIGN_EXECUTE` flag.
+- **Process:** **LONG → spot BUY**, **SHORT → linear perp Sell-to-open**, on Bybit. A **hard testnet gate**
+  (`_exec_mod:188` requires `ex.is_testnet()`) means the floor can *never* touch real money — paper is the
+  source of truth, testnet fills are proof-of-execution.
+- **Out:** `venue` + `exec_qty` on the position (or paper-only if geo-blocked / disabled).
+
+## Learning (floor side)
+- `cond_record` (`campaign.py:669`) — every close updates a `(condition@regime)` record that steers future
+  sizing; a losing round benches its conditions with a TTL (`failed_conditions`).
+- `_asset_perf` (`campaign.py:997`) — per-asset realized record drives the warm/cold ladder + bench.
+- **shadow-score** (`campaign.py:690`) — each *abstained* setup is logged and judged at its horizon against
+  real price: was the gate right (would-be loss) or wrong (would-be win)? Surfaced as `shadow_learning`.
+- `tp_sl_calibration` (`tp_calibration.py`, `data/tp_sl_calibration.json`) — re-measures reachable TP/SL
+  from accumulated trades.
+
+---
+
+## See also
+
+- [Architecture](/docs/architecture) — the 3-phase loop + the entry-quality pipeline visualised.
+- [The Firm Machinery](/docs/machinery) — the merge and the non-desk roles in prose.
+- [The Desks](/docs/desks) — each desk's own deep-dive page.
+- [API Reference](/docs/api) — where each component's output surfaces as an endpoint.

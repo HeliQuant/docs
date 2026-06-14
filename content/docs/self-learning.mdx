@@ -90,9 +90,9 @@ and hold-time**, concentrating capital on what works and starving what bleeds:
   of trades — so a reachable, per-asset TP replaced it (`scripts/95`).
 - **trailing stop** — a trend-follow trade ratchets its stop toward price so a genuine run isn't capped at
   a fixed TP; contrarian/fade trades keep a fixed TP (meant to snap, not run).
-- **dynamic horizon** — the hold-time adapts to the setup type: a **trend-follow** trade is held longer
-  (8h, trends persist), a **contrarian/fade** is short (3h, it snaps fast or the thesis is wrong), a
-  **validated edge** runs (24h).
+- **dynamic horizon** — the hold-time adapts to the setup type: a **trend-follow** trade gets room
+  (`HORIZON_TREND_H = 4h`, with a trailing stop + near-TP lock managing the runner), a **contrarian/fade**
+  is short (3h, it snaps fast or the thesis is wrong), a **validated edge** runs (24h).
 - **clear-trend gate** — the floor only trades a **clear** trend, aligned to it; a flat/ambiguous regime
   **abstains**, and a counter-trend signal flips to the trend-following side.
 

@@ -9,7 +9,7 @@ different LLM models so they don't groupthink. All nine are registered ERC-8004 
 
 | # | Desk | tokenId | What it reads |
 |---|---|---|---|
-| 1 | [**Regime/Technical** *(the ML)*](/docs/desks/regime) | 3 | XGBoost regime classifier (82.6% OOS) + trend strength + dynamic R:R |
+| 1 | [**Regime/Technical** *(the ML)*](/docs/desks/regime) | 3 | rule-based regime label live (XGBoost is the backtest engine, 82.6% OOS MNT-scoped) + trend strength + dynamic R:R |
 | 2 | [**Macro (Allora)**](/docs/desks/macro) | 4 | Allora decentralised-AI BTC/ETH 8h price prediction (on-chain oracle) |
 | 3 | [**On-chain/Risk**](/docs/desks/onchain-risk) | 5 | whale flow + watchlist health + GoPlus token safety |
 | 4 | [**Research**](/docs/desks/research) | 6 | Fear & Greed + global macro via free public APIs |
@@ -109,8 +109,10 @@ quadrantChart
 
 We tested a directional ML (XGBoost BUY/SELL on MNT) — it scored **~51% accuracy and −50% to −62% OOS
 net of fees** (Finding #22), so it is **not** used. The ML that *does* run is the **regime classifier**
-(82.6% OOS) inside the [Regime/Technical desk](/docs/desks/regime), used as a **capital allocator / risk
-read**, not a price predictor. Honest ML: the good model earns its place; the disproven one stays out.
+(82.6% OOS, MNT-scoped, in **backtest**) inside the [Regime/Technical desk](/docs/desks/regime), used as a
+**capital allocator / risk read**, not a price predictor. Live, the desk emits a cheap **rule-based regime
+proxy** (`detect_current`); the XGBoost model is the backtest engine that earns the classifier its pedigree.
+Honest ML: the good model earns its place; the disproven one stays out.
 
 ## Supporting inputs (not weighted desks)
 

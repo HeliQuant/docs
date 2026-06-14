@@ -7,32 +7,50 @@ description: The ML desk — an XGBoost regime classifier (82.6% OOS) used as a 
 learning lives. It runs the model that *earned* its place (a regime classifier) and explicitly does
 **not** run the one that didn't (a directional predictor).
 
-## What it reads
+## In / Process / Out
 
-`firm/organization.py · tool_regime()` over fresh 1h candles:
+`firm/organization.py · tool_regime()` (line 93) over each asset's `data/{ticker}_features.csv`:
 
-- **XGBoost regime classifier** — `82.6%` out-of-sample accuracy (`91.6%` on high-confidence calls).
-- **ADX trend strength** vs a dynamic trending threshold.
-- **Dynamic risk/reward** recommendation derived from the regime.
-- **OOS-validation status** for the asset (`is_validated` against the validated-edge registry).
+- **In:** the latest feature row (ADX, `ema_slope_5`, `volatility_10`) + ADX/vol quantile thresholds.
+- **Process:** `scripts/multi_asset.detect_current` (line 305) maps the row to a regime with **three
+  deterministic rules** — high `volatility_10` → `High_Volatility`; else high `adx` → `Trending_Up` /
+  `Trending_Down` (by `ema_slope_5` sign); else `Ranging`. A dynamic R:R (2.0–3.0) is scaled from ADX
+  strength.
+- **Out:** `{current_regime, adx, trending_threshold, trend_following_applicable_now,
+  recommended_dynamic_rr, regime_classifier_oos_accuracy, oos_validated_trading_edge, status}`.
+
+### The live label is a rule-based proxy — the XGBoost is the *backtest* engine
+
+This is the honest nuance. The **live** regime label that feeds the PM each cycle is the **rule-based
+`detect_current` proxy** above — *not* a fresh XGBoost inference. The **XGBoost classifier** is trained and
+scored in the **backtest replay path** (`scripts/multi_asset.py` — `model.predict`, line 260;
+`replay()`, line 313); it is not called on the live tick.
+
+The headline **`82.6%` OOS (`91.6%` when confident)** is a **backtested, MNT-scoped** result
+(`firm/asset_configs.py:16-19`) — measured on MNT's forward-4h regime, beating persistence (77.5%). The
+code emits that **same string for every asset** as a statement of the engine's pedigree; treat it as a
+property of the *method*, not a per-asset live accuracy. And — as everywhere on this site — **accurate
+regime ≠ trading profit**: `oos_validated_trading_edge` is `false` for every asset today.
 
 ## Pipeline
 
 <Mermaid
-  caption="Candles → regime + trend strength → a risk read (never a raw price call)"
+  caption="Features to a rule-based regime label plus trend strength to a risk read (never a raw price call)"
   chart={`
 flowchart TB
-  C[1h candles · Bybit / positioning CSV]:::s --> X[["XGBoost regime classifier<br/>82.6% OOS · 91.6% confident"]]:::ml
+  C[features CSV · ADX · ema_slope · volatility]:::s --> X[["detect_current — rule-based proxy<br/>vol / ADX / slope thresholds"]]:::ml
   C --> ADX[ADX trend strength<br/>vs dynamic threshold]:::s
-  X --> R{regime ∈ TREND ?}:::g
+  X --> R{regime in TREND ?}:::g
   ADX --> R
   R -->|yes| RR[recommend dynamic R:R]:::o
-  R -->|no| NA[trend-following N/A → context]:::o
+  R -->|no| NA[trend-following N/A to context]:::o
   X --> V{OOS-validated edge<br/>for this asset ?}:::g
   V -->|registry hit| EN[edge applies]:::o
   V -->|empty| AB[abstain unless an edge is earned]:::o
+  BT[(XGBoost classifier<br/>trained + scored in backtest replay only<br/>82.6% OOS · MNT-scoped)]:::bt -.->|pedigree, not the live call| X
   classDef s fill:#161614,stroke:#8b8b80,color:#f2efe6;
   classDef ml fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
+  classDef bt fill:#161614,stroke:#8b8b80,color:#8b8b80;
   classDef g fill:#1e1e1b,stroke:#c9f24b,color:#f2efe6;
   classDef o fill:#161614,stroke:#8b8b80,color:#f2efe6;
 `}
@@ -41,11 +59,11 @@ flowchart TB
 ## Regime → action
 
 <Mermaid
-  caption="The classifier produces a risk read — accurate regime ≠ trading profit"
+  caption="The label produces a risk read — accurate regime is not trading profit"
   chart={`
 stateDiagram-v2
-  [*] --> Classify: XGBoost on fresh candles
-  Classify --> Trending: regime ∈ TREND
+  [*] --> Classify: detect_current rules on fresh features
+  Classify --> Trending: regime in TREND
   Classify --> Ranging: otherwise
   Trending --> RiskRead: dynamic R:R sizing
   Ranging --> RiskRead: trend-following N/A
@@ -75,6 +93,8 @@ We tested a **directional** ML (XGBoost predicting BUY/SELL on MNT). It scored *
 and not registered on-chain.** A full-history (2.9 yr) walk-forward + rolling re-tune of trend-following
 was also flat-to-negative OOS; the earlier "+5.58%" was a short-window artifact, since scrubbed.
 
-What *is* accurate is the **regime classifier** (82.6% OOS). But an accurate regime label is **not** a
-trading profit — so it's used as a **capital allocator / risk read** feeding the PM, never as a price
-oracle. The good model earns its place; the disproven one stays out. That distinction is the differentiator.
+What *is* accurate is the **regime classifier** (82.6% OOS on MNT in backtest). But an accurate regime
+label is **not** a trading profit — so it's used as a **capital allocator / risk read** feeding the PM,
+never as a price oracle, and the live label is the cheap, responsive `detect_current` proxy rather than a
+per-tick model inference. The good model earns its place; the disproven one stays out. That distinction is
+the differentiator.
