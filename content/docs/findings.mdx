@@ -1,6 +1,6 @@
 ---
 title: Findings & Insights
-description: 23 honest, data-backed discoveries from building an autonomous trading firm on Mantle — including what doesn't work.
+description: 24 honest, data-backed discoveries from building an autonomous trading firm on Mantle — including what doesn't work.
 ---
 
 > Every finding traces to a real run or probe. **We publish what DOESN'T work too** — honesty is the
@@ -48,6 +48,13 @@ once cleared the cost-aware OOS bar on a one-year MNT window (+25.1% net). On **
 the edge had **decayed** to −7.2% OOS. The loop **demoted it on the evidence** — the validated registry
 is now **empty**. The edge was never the product — *the discipline that retires a decayed flagship is.*
 
+**24. The validated capability is volatility, not direction.** We tested Google's **TimesFM 2.5** foundation
+model both ways. **Price direction = no edge** (24h ≈ coin-flip, fee-eaten). But its **next-day
+realized-volatility forecast beats HAR-RV** (the econometric gold standard) and EWMA on BTC/ETH/SOL —
+**Diebold-Mariano p&lt;0.05 across 3/3 walk-forward folds**. So TimesFM runs as the firm's **risk engine**:
+vol-targeting position sizing + a regime-break alarm, never a price call. *We found the edge where it
+actually was.*
+
 ## On Execution & Risk
 
 **12. A trade is a hypothesis with an invalidation — gated, not guessed.** Every decision becomes a
@@ -65,9 +72,10 @@ Mantle transaction under a **broadcast-on-ENTER** policy. On-chain is the tamper
 **9. Honesty-by-design.** Deterministic tools compute; LLMs debate; the system **rejects any strategy
 that doesn't survive OOS**. We even retracted our own earlier headline numbers when they failed.
 
-**10. A firm of AI agents — recorded on Mantle, and now the LLM signs off on every trade.** **Seven**
+**10. A firm of AI agents — recorded on Mantle, and now the LLM signs off on every trade.** **Ten**
 real-source specialist desks — Regime ML · Macro (Allora) · On-chain · Smart-Money (Nansen) · Smart-Social
-(Elfa) · Research · **OI-Contrarian** — debate bull-vs-bear, then a Portfolio Manager synthesizes a
+(Elfa) · Research · **OI-Contrarian** · Carry · Mantle-Fundamentals · **TimesFM Vol/Risk** — debate
+bull-vs-bear, then a Portfolio Manager synthesizes a
 disciplined decision whose hash is **anchored in a live Mantle transaction**. The same PM was then
 **merged into the continuous floor**: it signs off (APPROVE / VETO) on every paper trade the floor proposes
 (`pm_signoff.py`), so the LLM genuinely *drives* trades — failing open on an outage so the floor never
