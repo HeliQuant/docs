@@ -21,7 +21,7 @@ Every endpoint below is defined in `app.py` (the always-on Railway service). All
 | `GET /carry` | delta-neutral funding-carry per symbol (HYPE/SUI/MNT/BTC/ETH) + `best_harvestable` — the one validated positive edge family. Fed by the local engine (`scripts/88`) since Bybit is geo-blocked from Railway |
 | `GET /candles` | recent OHLC candles (Bybit linear perp, Amsterdam region). `?asset=BTC&interval=60&limit=120` — feeds the live-floor candlestick |
 | `GET /sentiment` | free market context — crypto Fear & Greed (alternative.me) + BTC network backdrop (blockchain.com). Context, not edge |
-| `GET /agents` | the ERC-8004 roster — firm + 9 desks, tokenId, kind, ML flag, on-chain reputation + sealed-output count, reliability weight |
+| `GET /agents` | the ERC-8004 roster — firm + 12 desks, tokenId, kind, ML flag, on-chain reputation + sealed-output count, reliability weight |
 | `GET /desks` | desk reliability weights (`0.6–1.4`, samples, align-rate) |
 | `GET /edges` | the edge registry — `validated` (gates aggression) + `candidate` (on probation) |
 | `GET /onchain` | the firm wallet's anchor transactions (Etherscan v2, Mantle Sepolia). `?wallet=0x..` to trace any address |
