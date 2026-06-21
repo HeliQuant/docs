@@ -3,7 +3,7 @@ title: The Firm Machinery
 description: Beyond the desks — the steward, researchers, the PM, the LLM-gated trading floor, sizing, and the learning loop.
 ---
 
-The [nine desks](/docs/desks) only *produce reads*. Turning those reads into a disciplined, recorded,
+The [ten desks](/docs/desks) only *produce reads*. Turning those reads into a disciplined, recorded,
 self-improving decision is the job of a whole **machinery of non-desk roles** — the parts of HeliQuant
 that act like the rest of a real trading firm: a steward who keeps the data healthy, researchers who
 argue, a PM who decides, a floor that trades, a risk officer who sizes, and a back office that records
@@ -59,7 +59,7 @@ flowchart LR
   chart={`
 flowchart TB
   ST[["STEWARD — keeps the whale watchlist healthy<br/>MIGRATE or KEEP"]]:::role
-  ST --> P1[PHASE 1 · 7 LLM desks run real tools]:::desk
+  ST --> P1[PHASE 1 · 10 LLM desks run real tools]:::desk
   P1 --> P15{{"PHASE 1.5 · Bull vs Bear — 2-round debate"}}:::role
   P15 --> PM[["PHASE 2 · Portfolio Manager<br/>weighted desks + R:R gate"]]:::role
   PM --> FIN{finalize_decision<br/>valid ?}:::g

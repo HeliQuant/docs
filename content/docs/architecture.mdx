@@ -1,13 +1,13 @@
 ---
 title: Architecture
-description: How the firm runs — 7 LLM desks debate, the PM decides, and the LLM signs off on every floor trade.
+description: How the firm runs — ten specialist desks debate, the PM decides, and the LLM signs off on every floor trade.
 ---
 
 HeliQuant is structured like a trading firm: specialist **desks** produce domain reads, **researchers**
 argue bull-vs-bear, and a **Portfolio Manager** synthesizes one disciplined decision per cycle — and, via
 the [PM sign-off merge](/docs/machinery#the-merge-the-floor-proposes-the-llm-pm-disposes), that same PM now
-**signs off on every trade the continuous floor proposes**. Seven desks call an LLM; two more (flow-intel
-and whale) fold in as pre-computed stances.
+**signs off on every trade the continuous floor proposes**. Ten specialist desks call an LLM analyst; two
+more (flow-intel and whale) fold in as pre-computed stances — **twelve analyst voices** in all.
 
 ## How a decision flows
 
@@ -20,7 +20,7 @@ the debate stress-tests it, and the PM turns the weighted picture into a single 
   chart={`
 flowchart LR
   S((start)):::se --> A[Gather · live sources]:::act
-  A --> B[Analyze · 7 LLM desks]:::act
+  A --> B[Analyze · 10 LLM desks]:::act
   B --> C[Debate · bull vs bear]:::act
   C --> D[PM synthesize · weight by reliability]:::act
   D --> Q{edge AND<br/>R:R ≥ 2:1 ?}:::dec
@@ -75,7 +75,7 @@ sequenceDiagram
   participant SB as Supabase
   U->>APP: GET /run-cycle (keep-alive + driver)
   APP->>APP: gap ≥ MIN_CYCLE_GAP ? acquire lock
-  loop each of the 7 LLM desks
+  loop each of the 10 LLM desks
     APP->>D: run real tool (Bybit/Allora/HL/DeFiLlama…)
     D-->>APP: real data
     APP->>L: interpret output (model rotates per desk)
@@ -211,7 +211,8 @@ stay snappy — and it keeps trading on real traffic even if the external pinger
 
 - **Brain:** multi-provider LLM abstraction (BYO keys) · runs clean on free Groq
 - **Data:** Bybit (market) · Hyperliquid (whale) · Allora (decentralised-AI macro) · DeFiLlama (Mantle
-  fundamentals) · Nansen / Elfa (smart-money & social) · Etherscan v2 (on-chain)
+  fundamentals) · Nansen / Elfa (smart-money & social) · Etherscan v2 (on-chain) · **Google TimesFM 2.5** (next-day realized-vol forecast)
+- **Execution:** **Bitget** demo-futures (long + short, v2 API) · Bybit testnet — paper at live prices; live fills run locally (cloud datacenter IPs are geo-blocked)
 - **Chain:** Mantle Sepolia — ERC-8004 (identity/reputation/validation) · ERC-8183 (JobManager) ·
   ERC-7857 (transferable agent NFT) · TradingVault · AlloraConsumer
 - **Always-on:** Railway service + Supabase state · driven by an uptime pinger + self-driving floor

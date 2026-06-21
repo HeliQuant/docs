@@ -1,11 +1,17 @@
 ---
 title: The Desks
-description: Nine specialist desks, each a real data source — and one of them is the ML.
+description: Ten specialist desks (+ flow-intel & whale) — twelve analyst voices, each a real data source. One is the ML.
 ---
 
 Each desk runs a **real tool** over fresh data and returns a stance + confidence. Different desks run on
-different LLM models so they don't groupthink. All nine are registered ERC-8004 agents
-([see On-chain](/docs/on-chain)). **Every desk has its own deep-dive page** — linked in the table below.
+different LLM models so they don't groupthink. The firm synthesizes **ten specialist desks** plus two
+self-learning inputs — **flow-intel** and **whale** — for **twelve analyst voices** into one PM decision.
+**Every desk has its own deep-dive page** — linked in the table below.
+
+> **On-chain vs analytical.** The firm + **9 desks** are registered ERC-8004 identities (tokenIds 2–11,
+> [see On-chain](/docs/on-chain)). The three newest desks — **Carry, Mantle Fundamentals, TimesFM** — were
+> wired into the PM synthesis on 2026-06-20 and run **analytical-only** (not yet minted as on-chain
+> tokens). We say so rather than inflate the on-chain count.
 
 | # | Desk | tokenId | What it reads |
 |---|---|---|---|
@@ -16,19 +22,22 @@ different LLM models so they don't groupthink. All nine are registered ERC-8004 
 | 5 | [**Smart-Money Flow**](/docs/desks/smart-money) | 7 | Mantle DEX flow + mETH staking / majors perp positioning + Nansen netflow |
 | 6 | [**Smart-Social**](/docs/desks/smart-social) | 8 | Elfa narrative / mindshare (smart accounts, not retail) |
 | 7 | [**OI-Contrarian**](/docs/desks/oi-contrarian) | 9 | fade perp open-interest extremes — the OOS-validated edge methodology |
-| 8 | [**flow-intel**](/docs/desks/flow-intel) | 10 | self-learning flow-signal validation (OI / funding / order-flow / momentum) |
-| 9 | [**whale**](/docs/desks/whale) | 11 | Hyperliquid per-asset whale stance tracker |
+| 8 | [**Carry**](/docs/desks/carry) | — | delta-neutral funding-carry yield (market-neutral; HYPE/SUI OOS-validated) |
+| 9 | [**Mantle Fundamentals**](/docs/desks/mantle-fundamentals) | — | DeFiLlama Mantle TVL / fees / staking → ecosystem risk-on/off |
+| 10 | [**TimesFM Vol/Risk**](/docs/desks/timesfm) | — | TimesFM 2.5 next-day realized-vol forecast (beats HAR-RV, DM p&lt;0.05) → vol-targeting |
+| + | [**flow-intel**](/docs/desks/flow-intel) | 10 | self-learning flow-signal validation (OI / funding / order-flow / momentum) |
+| + | [**whale**](/docs/desks/whale) | 11 | Hyperliquid per-asset whale stance tracker |
 
 ## How the desks divide the problem
 
-Nine desks, three jobs: **predict** a pattern, **follow** informed actors, or supply **context**. The
-firm tilts which family leads based on each asset's measured character (see below).
+Twelve voices, three jobs: **predict** a pattern, **follow** informed actors, or supply **context / risk**.
+The firm tilts which family leads based on each asset's measured character (see below).
 
 <Mermaid
-  caption="Desk taxonomy — prediction vs flow vs context"
+  caption="Desk taxonomy — prediction vs flow vs context/risk"
   chart={`
 mindmap
-  root((HeliQuant 9 desks))
+  root((HeliQuant · 12 voices))
     Prediction
       Regime/Technical — ML 82.6% OOS
       OI-Contrarian — the validated edge
@@ -37,10 +46,13 @@ mindmap
       On-chain/Risk
       whale — Hyperliquid
       flow-intel — self-learning
-    Context
+    Context / risk
       Macro — Allora oracle
       Research — public APIs
       Smart-Social — Elfa
+      Carry — funding yield
+      Mantle Fundamentals — DeFiLlama
+      TimesFM — validated vol/risk
 `}
 />
 
@@ -55,13 +67,13 @@ then decides — behind a hard R:R gate.
   caption="Collaboration — stances are weighted by learned reliability, then synthesized"
   chart={`
 flowchart LR
-  subgraph DK["9 desk stances"]
+  subgraph DK["12 analyst voices"]
     direction TB
     A1[Regime · ML]:::d
     A2[OI-Contrarian]:::d
     A3[Smart-Money]:::d
-    A4[whale]:::d
-    A5[…5 more]:::d
+    A4[TimesFM · vol/risk]:::d
+    A5[…8 more]:::d
   end
   W{{"desk_performance<br/>weight 0.6–1.4<br/>(≥15 samples · neutral until proven)"}}:::w
   RANK[["rank → TRUSTED / DISCOUNT"]]:::r
@@ -114,13 +126,18 @@ net of fees** (Finding #22), so it is **not** used. The ML that *does* run is th
 proxy** (`detect_current`); the XGBoost model is the backtest engine that earns the classifier its pedigree.
 Honest ML: the good model earns its place; the disproven one stays out.
 
-## Supporting inputs (not weighted desks)
+## Risk & context desks
 
+- **TimesFM Vol/Risk** — the validated risk engine: next-day realized-vol forecast (beats HAR-RV, DM
+  p&lt;0.05) → vol-targeting size multiplier + regime-break alarm. [Deep-dive](/docs/desks/timesfm).
 - **Mantle Fundamentals** — DeFiLlama chain TVL / fees / mETH staking (free, keyless) → ecosystem
-  risk-on/off tilt for MNT.
-- **Character Tilt** — profiles each asset (predictable vs flow-following) and tilts the desk ranking
-  (the quadrant above).
-- **Carry** — delta-neutral funding-carry monitor.
+  risk-on/off tilt for MNT. [Deep-dive](/docs/desks/mantle-fundamentals).
+- **Carry** — delta-neutral funding-carry monitor (HYPE/SUI validated). [Deep-dive](/docs/desks/carry).
+
+## Not a weighted desk: Character Tilt
+
+**Character Tilt** — `asset_efficiency.py` profiles each asset (predictable vs flow-following) and tilts
+the desk ranking (the quadrant above). It's a meta-weighting over the desks, not a voting desk.
 
 ## Reliability weights
 
