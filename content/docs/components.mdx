@@ -21,7 +21,7 @@ the narrative lives in [Architecture](/docs/architecture), [The Desks](/docs/des
 flowchart TB
   subgraph ORG["LLM ORG · organization.py"]
     direction TB
-    STW[Steward]:::r --> DSK[7 LLM desks]:::r --> DBT[Bull/Bear debate]:::r --> PM1[PM run_pm]:::r --> FIN[finalize_decision + trade_ticket]:::r
+    STW[Steward]:::r --> DSK[10 LLM desks]:::r --> DBT[Bull/Bear debate]:::r --> PM1[PM run_pm]:::r --> FIN[finalize_decision + trade_ticket]:::r
   end
   subgraph FLR["NO-LLM FLOOR · campaign.py"]
     direction TB
@@ -57,8 +57,8 @@ flowchart TB
   the cycle's asset is chosen by rotation in `app.py:132`, not here.)*
 - **Out:** `{action, confidence, reason}` + before/after health + migration result.
 
-## The 7 LLM desks
-`build_desks` · `organization.py:454` — each desk = (a real tool output) + (one LLM interpretation via
+## The 10 LLM desks
+`build_desks` · `organization.py:505` — each desk = (a real tool output) + (one LLM interpretation via
 `run_analysts:470`, `ANALYST_SYS:363`). Different models per desk, so they don't groupthink.
 
 | Desk | Tool (In→Process→Out) | Code |
@@ -69,7 +69,10 @@ flowchart TB
 | **Research** | free public APIs (Fear&Greed, CoinGecko global/trending/prices) → `{fear_greed_index, global_market, trending_coins, majors_24h_change_pct}` | `tool_research:202` |
 | **Smart-Money Flow** | Smart-Money engine (`scripts/51`) — CONTRACT mode (Mantle DEX flow + mETH staking) or POSITIONING mode (perp OI/funding/long-short) + Nansen macro netflow → `{flow_score_0_100, read, macro_smart_money_nansen}` | `tool_smartmoney:239` |
 | **Smart-Social** | Elfa trending + per-asset mentions/news → `{asset_in_top_trending, asset_attention_24h, top_narratives_24h}` | `tool_smartsocial:278` |
-| **OI-Contrarian** | `validated_edges.json` ∩ live OI-quintile signal → if edge_validated **and** actionable, a backtested reason to ENTER; else context-only | `tool_oi_contrarian:310` |
+| **OI-Contrarian** | `validated_edges.json` ∩ live OI-quintile signal → if edge_validated **and** actionable, a backtested reason to ENTER; else context-only | `tool_oi_contrarian:314` |
+| **Carry** | scan HYPE/SUI/MNT/BTC/ETH perp funding annualized vs risk-free → `{this_asset_carry, best_harvestable}`; market-neutral yield, non-directional | `tool_carry:458` |
+| **Mantle Fundamentals** | DeFiLlama Mantle chain TVL trend + 24h fees + staking yields → `{mantle_tvl_usd, tvl_trend, ecosystem_risk}` | `tool_defillama:484` |
+| **TimesFM Vol/Risk** | daily realized-vol → TimesFM 2.5 next-day RV forecast (beats HAR-RV, DM p&lt;0.05) → `{volatility{regime, sizing_multiplier}, direction (context-only)}` | `timesfm_desk.py` |
 
 Each desk's per-stance step:
 - **In:** the tool output JSON + the desk's domain string.
@@ -198,10 +201,11 @@ Inline in `step` (`campaign.py:848-916`):
 
 ## Execution
 `_exec_open` · `campaign.py:232` (+ `_exec_perp_open:209`, `_exec_close:257`)
-- **In:** an approved position + `CAMPAIGN_EXECUTE` flag.
-- **Process:** **LONG → spot BUY**, **SHORT → linear perp Sell-to-open**, on Bybit. A **hard testnet gate**
-  (`_exec_mod:188` requires `ex.is_testnet()`) means the floor can *never* touch real money — paper is the
-  source of truth, testnet fills are proof-of-execution.
+- **In:** an approved position + `CAMPAIGN_EXECUTE` / `BITGET_EXECUTE` flag.
+- **Process:** **LONG → spot BUY**, **SHORT → linear perp Sell-to-open** on Bybit testnet — or **Bitget
+  demo-futures** (long + short, `BITGET_EXECUTE=1`, `bitget_adapter.py`). A **hard testnet/demo gate** means
+  the floor can *never* touch real money — paper is the source of truth, testnet/demo fills are
+  proof-of-execution.
 - **Out:** `venue` + `exec_qty` on the position (or paper-only if geo-blocked / disabled).
 
 ## Learning (floor side)

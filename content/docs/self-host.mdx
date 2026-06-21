@@ -27,8 +27,9 @@ cd agents && python -m venv .venv && .venv/Scripts/pip install -r requirements.t
 <Step>
 ### Configure `.env`
 Bring your own: an LLM provider key (free Groq works), Bybit (market data, optional), Allora, Mantlescan,
-a Supabase project (URL + service_role), and a testnet wallet key for on-chain anchoring. The firm runs
-clean on **free Groq** — no paid brain required.
+a Supabase project (URL + service_role), a testnet wallet key for on-chain anchoring, **optional Bitget
+demo keys** (futures execution), and **optional `TIMESFM_URL` / `TIMESFM_TOKEN`** (the TimesFM vol Space —
+falls back to EWMA if unset). The firm runs clean on **free Groq** — no paid brain required.
 </Step>
 <Step>
 ### Deploy
