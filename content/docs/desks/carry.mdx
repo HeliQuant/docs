@@ -1,0 +1,42 @@
+---
+title: Carry desk
+description: Delta-neutral funding-carry monitor — market-neutral yield, HYPE/SUI OOS-validated. Advisory, non-directional.
+---
+
+**Analytical desk** — promoted into the PM synthesis 2026-06-20 (previously a supporting input); not a
+separate on-chain token. The Carry desk watches **delta-neutral funding-carry** — the yield from holding
+spot and shorting the perp to harvest funding — a **market-neutral** opportunity, explicitly **not** a
+directional signal.
+
+## What it reads
+
+`firm/organization.py · tool_carry()` (over `firm/carry_signal.py`):
+
+- **This asset's carry** — trailing perp funding annualized vs the risk-free rate.
+- **Best harvestable** — scans HYPE / SUI / MNT / BTC / ETH and returns the most attractive carry with its
+  `crash_class` (crash-stress robustness) and verdict.
+
+## Why it's only advisory
+
+Funding-carry is a **yield** play, not alpha on price. It earns when funding is rich and the position is
+held delta-neutral; **HYPE / SUI funding-carry is OOS-validated** (see [Findings](/docs/findings)), and it
+is single-venue executable. But most of the time there is **no carry above risk-free**, so the desk simply
+reports "nothing harvestable" and stays out of the directional vote.
+
+## Output (shape — illustrative values)
+
+```json
+{
+  "asset": "HYPE",
+  "this_asset_carry": { "symbol": "HYPEUSDT", "carry_ann_pct": 0.0, "crash_class": "robust", "attractive": false },
+  "best_harvestable": null,
+  "read": "no harvestable carry above risk-free right now",
+  "caveat": "market-neutral yield option, NOT a directional signal; HYPE/SUI funding-carry validated OOS"
+}
+```
+
+## Honest caveats
+
+Carry is **non-directional** — it never says "buy" or "sell" the asset; it flags a market-neutral yield
+when one exists. It executes locally (Bybit / Hyperliquid), and it is quiet by design: most cycles report
+no harvestable carry.

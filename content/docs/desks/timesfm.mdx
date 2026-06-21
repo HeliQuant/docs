@@ -1,0 +1,86 @@
+---
+title: TimesFM Vol/Risk desk
+description: Google TimesFM 2.5 next-day realized-volatility forecast — the firm's validated risk engine and vol-targeting sizer.
+---
+
+**Analytical desk** — wired into the PM synthesis 2026-06-20; not yet a registered on-chain token. This
+is the firm's **risk engine**: Google **TimesFM 2.5 (200M)**, a time-series foundation model, forecasting
+**next-day realized volatility**. It is the one desk whose core output is **OOS-validated to beat the
+gold standard** — and it is deliberately **not** a price-direction desk.
+
+## The honest split: volatility YES, direction NO
+
+We tested TimesFM both ways and published both results:
+
+- **Volatility forecast — VALIDATED.** Next-day realized-vol beats **HAR-RV** (the econometric gold
+  standard) and EWMA on BTC/ETH/SOL: **Diebold-Mariano p&lt;0.05, 3/3 walk-forward folds, two OOS
+  windows** (`scripts/test_timesfm_vol_oos.py`). *(MNT was a tie with HAR — stated plainly.)*
+- **Price direction — NO edge.** 24h-ahead direction is ~coin-flip and fee-eaten
+  (`scripts/test_timesfm_oos.py`); covariate-fusion didn't help (`scripts/test_timesfm_covariates_oos.py`).
+  So direction is **context-only** — never a vote.
+
+## What it reads
+
+`firm/timesfm_desk.py · tool_timesfm()`:
+
+- **Realized-vol forecast (validated role)** — daily RV (√Σ hourly log-ret²) → TimesFM forecasts next-day
+  RV → `regime` (rising / falling / stable), `percentile`, and a **vol-targeting `sizing_multiplier`**
+  (target-vol ÷ forecast-vol, clipped 0.25–2.0).
+- **Quantile band + abstain** — q10/q90 forecast band; if the band is too wide → `abstain_on_uncertainty`.
+- **Regime-break anomaly** — compares a forecast made H bars ago against what actually happened; flags
+  `regime_break` when the realized move lands outside the forecast band.
+
+Backend self-reports `timesfm-2.5-200m` (local), `timesfm-remote` (HF Space), or `fallback-ewma-lognormal`.
+
+## How the firm uses it
+
+<Mermaid
+  caption="The vol read drives sizing, risk-off stance, and the regime-break alarm — never a price call"
+  chart={`
+flowchart LR
+  RV[daily realized vol] --> FC[TimesFM next-day RV]:::g
+  FC --> M{{"sizing_multiplier<br/>target ÷ forecast, 0.25–2.0"}}:::w
+  FC --> S{{"stance: rising/high vol → avoid<br/>calm → neutral"}}:::w
+  FC --> A{{"regime-break alarm"}}:::w
+  M --> T[[trade-ticket sizer · HQ_VOL_SIZING]]:::pm
+  classDef g fill:#1e1e1b,stroke:#c9f24b,color:#f2efe6;
+  classDef w fill:#161614,stroke:#8b8b80,color:#f2efe6;
+  classDef pm fill:#1e1e1b,stroke:#c9f24b,color:#c9f24b;
+`}
+/>
+
+- **Vol-targeting sizing** — `vol_sizing_factor()` feeds the trade-ticket sizer (`HQ_VOL_SIZING=1`): high
+  forecast vol → size **down**, calm → size up (scoped to validated majors).
+- **Risk-off stance** — `stance_guidance`: rising / high-percentile vol → **avoid** (de-risk); stable /
+  low vol → **neutral**. It never votes bullish/bearish.
+- **Anomaly alarm** — a `regime_break` warns the PM the tape just left its forecast envelope.
+
+## Deployment
+
+The 200M model is too heavy for the always-on Railway host, so it runs as a separate **Hugging Face Space**
+microservice (free CPU, no geo-block) that the firm calls over HTTP (`TIMESFM_URL` / `TIMESFM_TOKEN`).
+Unset → graceful EWMA fallback, so the firm never hard-depends on it.
+
+## Output (shape — illustrative values)
+
+```json
+{
+  "asset": "BTC",
+  "backend": "timesfm-remote",
+  "volatility": {
+    "next_day_rv_pct": 2.81, "now_rv_pct": 2.40, "change_pct": 17.1,
+    "regime": "rising", "percentile": 63, "sizing_multiplier": 0.85,
+    "validated": "beats HAR-RV/EWMA OOS (DM p<0.05 majors)"
+  },
+  "direction": "lean_bullish", "confidence": "low", "abstain_on_uncertainty": false,
+  "anomaly": { "regime_break": false, "z": 0.4 },
+  "directional_edge_oos": "none — coin-flip & fee-eaten; trade the VOL, not the point direction",
+  "stance_guidance": "VOLATILITY/RISK desk — rising/high vol → avoid; calm → neutral"
+}
+```
+
+## Honest caveats
+
+The **volatility** forecast is the validated, risk-tradeable output (DM p&lt;0.05 on BTC/ETH/SOL). The
+**price direction** has **no** edge and is shown only as context. This desk's job is to **size and
+de-risk by forecast risk**, not to call price.
